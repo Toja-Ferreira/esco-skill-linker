@@ -4,26 +4,26 @@ Languages: pt, en
 
 ## Concepts
 
-- Skills: 13,960
-- Occupations: 3,043
+- Skills: 13,939
+- Occupations: 3,039
 - Occupation-skill relations: 126,051
 
 ### Skill type
 
 | skillType | n | share |
 |---|---:|---:|
-| skill/competence | 10,734 | 76.9% |
-| knowledge | 3,221 | 23.1% |
+| skill/competence | 10,715 | 76.9% |
+| knowledge | 3,219 | 23.1% |
 | (blank) | 5 | 0.0% |
 
 ### Reusability level
 
 | reuseLevel | n | share |
 |---|---:|---:|
-| sector-specific | 6,667 | 47.8% |
-| cross-sector | 3,788 | 27.1% |
-| occupation-specific | 3,047 | 21.8% |
-| transversal | 453 | 3.2% |
+| sector-specific | 6,655 | 47.7% |
+| cross-sector | 3,783 | 27.1% |
+| occupation-specific | 3,044 | 21.8% |
+| transversal | 452 | 3.2% |
 | (blank) | 5 | 0.0% |
 
 ## Ground truth
@@ -33,24 +33,24 @@ Languages: pt, en
 | essential | 67,600 | 53.6% |
 | optional | 58,451 | 46.4% |
 
-- Occupations with >=1 essential skill: 3,039 of 3,043 (99.9%)
+- Occupations with >=1 essential skill: 3,039 of 3,039 (100.0%)
 - Essential per occupation: mean 22.2, median 19, min 3, max 99
-- Distinct skills used as gold: 11,378 of 13,960 (81.5%)
-- Skills never gold (index distractors): 2,582
+- Distinct skills used as gold: 11,378 of 13,939 (81.6%)
+- Skills never gold (index distractors): 2,561
 
 ## Text availability, skills
 
 | language | preferred | alt | hidden | descriptions |
 |---|---:|---:|---:|---:|
-| pt | 13,960 | 3,652 | 569 | 13,960 |
-| en | 13,960 | 86,690 | 1,095 | 13,960 |
+| pt | 13,939 | 3,632 | 569 | 13,939 |
+| en | 13,939 | 86,454 | 1,095 | 13,939 |
 
 ## Text availability, occupations
 
 | language | preferred | alt | hidden | descriptions |
 |---|---:|---:|---:|---:|
-| pt | 3,043 | 8,934 | 109 | 3,043 |
-| en | 3,043 | 30,417 | 92 | 3,043 |
+| pt | 3,039 | 8,924 | 109 | 3,039 |
+| en | 3,039 | 30,387 | 92 | 3,039 |
 
 ## Skills with blank skillType or reuseLevel (5)
 

@@ -16,13 +16,13 @@ Labour market systems speak ESCO. Linking the two makes course content legible t
 comparable across institutions, and usable for guidance and matching.
 
 The retrieval task: given a short free-text learning outcome, return the ESCO skill and
-knowledge concepts it corresponds to, from a candidate space of 13,960 concepts.
+knowledge concepts it corresponds to, from a candidate space of 13,939 concepts.
 
 ## The central question
 
 ESCO's **descriptions are complete in both languages** — 100% of skills and occupations carry
 one in Portuguese and in English. ESCO's **alternative labels are not**: English skills carry
-86,690 alt-labels, Portuguese skills carry 3,652. A **23.75× gap**.
+86,454 alt-labels, Portuguese skills carry 3,632. A **23.8× gap**.
 
 Lexical retrieval therefore starts from a heavily unequal footing across the two languages,
 while dense retrieval over descriptions does not. Hence:
@@ -131,14 +131,14 @@ measured by `src/ingest/build.py` and recorded in
 
 | | Count |
 |---|---|
-| Skills (all `KnowledgeSkillCompetence`, all `released`) | 13,960 |
-| — skill/competence | 10,734 |
-| — knowledge | 3,221 |
+| Skills (all `KnowledgeSkillCompetence`, all `released`) | 13,939 |
+| — skill/competence | 10,715 |
+| — knowledge | 3,219 |
 | — unlabelled | 5 |
-| Occupations (all `released`) | 3,043 |
+| Occupations (all `released`) | 3,039 |
 
-Reusability level: sector-specific 6,667 · cross-sector 3,788 · occupation-specific 3,047 ·
-transversal 453 · blank 5.
+Reusability level: sector-specific 6,655 · cross-sector 3,783 · occupation-specific 3,044 ·
+transversal 452 · blank 5.
 
 The 5 concepts with no `skillType` or `reuseLevel` are the DigComp competence areas
 (*segurança TIC*, *criação de conteúdos digitais*, and three others) — container concepts from
@@ -149,22 +149,22 @@ to appear as gold.
 
 | Field | PT skills | EN skills |
 |---|---|---|
-| `description` | 13,960 (100%) | 13,960 (100%) |
-| `altLabels` — concepts covered | 1,130 (8.1%) | 13,942 (99.9%) |
-| `altLabels` — total labels | 3,652 | **86,690** |
+| `description` | 13,939 (100%) | 13,939 (100%) |
+| `altLabels` — concepts covered | 1,124 (8.1%) | 13,921 (99.9%) |
+| `altLabels` — total labels | 3,632 | **86,454** |
 | `definition` | 0 | 0 |
 | `scopeNote` | 0 | 0 |
 
 `definition` and `scopeNote` are empty throughout and are dropped.
 
 **The asymmetry is concentrated on the corpus side.** Occupations — which supply the queries —
-carry 8,934 Portuguese alt-labels against 30,417 English, a 3.4× gap, much of it gendered pairs
-(*Diretor técnico / Diretora técnica*). Skills — the retrieval corpus — differ by 23.75×. So
+carry 8,924 Portuguese alt-labels against 30,387 English, a 3.4× gap, much of it gendered pairs
+(*Diretor técnico / Diretora técnica*). Skills — the retrieval corpus — differ by 23.8×. So
 Portuguese queries are only mildly disadvantaged while the documents being searched are
 severely so, which is precisely where a lexical method needs surface forms to match against.
 
-Preferred-label coverage is essentially complete in Portuguese: 20,110 PT preferred labels
-against 20,130 EN across all concept types. Any PT–EN performance gap is therefore a genuine
+Every concept carries a preferred label in both languages — 13,939 skills and 3,039
+occupations, with no gaps on either side. Any PT–EN performance gap is therefore a genuine
 effect, not an artefact of missing labels.
 
 ### Ground truth
@@ -176,23 +176,29 @@ correspond to the ESCO model properties `relatedEssentialSkill` and `relatedOpti
 |---|---|
 | `essential` | 67,600 |
 | `optional` | 58,451 |
-| Occupations with ≥1 essential skill | 3,039 of 3,043 (99.9%) |
-| Distinct skills appearing as gold | 11,378 of 13,960 (81.5%) |
-| Skills never appearing as gold | 2,582 |
+| Occupations with ≥1 essential skill | 3,039 of 3,039 (100%) |
+| Distinct skills appearing as gold | 11,378 of 13,939 (81.6%) |
+| Skills never appearing as gold | 2,561 |
 
 Essential skills per occupation: mean 22.2, median 19, min 3, max 99.
 
-All 13,960 skills stay in the retrieval index. The 2,582 that never appear as gold serve as
+All 13,939 skills stay in the retrieval index. The 2,561 that never appear as gold serve as
 distractors, which is the realistic setting — and a stricter one than indexing only
 gold-eligible concepts.
 
-### Known defect in the release
+### Known defects in the release
 
-`occupationSkillRelations_pt.csv` contains **English** values in its `occupationLabel` and
-`skillLabel` columns, despite the data dictionary declaring both as `skos:prefLabel`. Only the
-URI columns are language-correct. Joins must go through URIs and take labels from the concept
-files; using the relation-file labels would silently produce an English benchmark labelled as
-Portuguese.
+**Concepts are exported more than once.** 21 skills and 4 occupations appear as two rows each,
+differing only in `modifiedDate`; all other fields are identical. A loader that does not
+deduplicate will carry 13,960 skill rows for 13,939 concepts and double-count the affected
+queries. `src/ingest/build.py` collapses them and raises if a URI ever appears twice with
+genuinely conflicting attributes.
+
+**`occupationSkillRelations_<lang>.csv` carries English labels regardless of language.** The
+`occupationLabel` and `skillLabel` columns hold English strings even in the `pt` distribution,
+though the data dictionary declares both as `skos:prefLabel`. Only the URI columns are
+language-correct. Joins must go through URIs and take labels from the concept files; using the
+relation-file labels would silently produce an English benchmark labelled as Portuguese.
 
 ### Files used
 
@@ -245,7 +251,7 @@ beside the only published numbers in this space at all.
 - **Lexical field:** BM25 scored twice, over labels only and over labels plus description. The
   PT–EN asymmetry lives entirely in the labels, so splitting them isolates it rather than
   confounding it.
-- **Transversal:** with and without the 453 transversal skills, which flood similarity-based
+- **Transversal:** with and without the 452 transversal skills, which flood similarity-based
   rankings.
 - **Concept type:** knowledge against skill/competence.
 - **Sector:** via `iscoGroup` and `naceCode`, both fully populated on occupations.
@@ -276,7 +282,7 @@ Each scored on the same frozen split, with latency and cost recorded alongside q
   are occupation descriptions with a mean of 22.2 gold skills each. Real learning outcomes run
   10–15 words with 1–3 concepts. These reward different systems. Mitigated by also scoring
   per-sentence, and by the hand-labelled set below.
-- **Any lexical PT–EN gap is partly a corpus artefact.** With 23.75× fewer alternative labels on
+- **Any lexical PT–EN gap is partly a corpus artefact.** With 23.8× fewer alternative labels on
   the skills being retrieved, a BM25 gap measures ESCO's label coverage as much as the method.
 - **Reality check set:** 150–250 hand-labelled Portuguese course units. Annotation uses pooling
   — run every approach, pool the top-k from each, judge only pooled candidates — so recall is
@@ -344,4 +350,4 @@ carried over, no university data used.
 
 ESCO is published by the European Commission under its own terms of use; see the
 [ESCO portal](https://esco.ec.europa.eu/) for details. Check those terms before redistributing
-derived data.
+derived data.erived data.

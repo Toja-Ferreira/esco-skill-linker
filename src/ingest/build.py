@@ -1,8 +1,9 @@
 """Load the ESCO CSV distribution into normalised tables.
 
-Reads data/raw/<lang>/ for each configured language and writes parquet tables to data/processed/.
-Verifies that the concept space and the occupation-skill relations are identical across languages, 
-since the cross-lingual evaluation depends on that.
+Reads data/raw/<lang>/ for each configured language and writes parquet tables to
+data/processed/. Verifies that the concept space and the occupation-skill
+relations are identical across languages, since the cross-lingual evaluation
+depends on that.
 
 Usage:
     python -m src.ingest.build
@@ -25,7 +26,8 @@ DEFAULT_LANGUAGES = ["pt", "en"]
 # ESCO packs multiple alternative labels into a single field, newline-separated.
 LABEL_SEP = "\n"
 
-# Language-independent attributes. Taken from the first language and checked against the others.
+# Language-independent attributes. Taken from the first language and checked
+# against the others.
 SKILL_ATTRS = ["conceptUri", "skillType", "reuseLevel", "status", "inScheme"]
 OCCUPATION_ATTRS = ["conceptUri", "iscoGroup", "status", "code", "naceCode"]
 RELATION_COLS = ["occupationUri", "relationType", "skillType", "skillUri"]
@@ -43,12 +45,32 @@ def read_raw(lang: str, stem: str) -> pd.DataFrame:
 
 
 def build_concepts(languages: list[str], stem: str, attrs: list[str]) -> pd.DataFrame:
-    """One row per concept, carrying only language-independent attributes."""
+    """One row per concept, carrying only language-independent attributes.
+
+    The release contains a handful of concepts exported twice, differing only
+    in `modifiedDate` (four occupations in v1.2.1). Since `modifiedDate` is not
+    among the retained attributes, those rows are exact duplicates here and are
+    collapsed. A URI appearing twice with genuinely conflicting attributes is a
+    different problem and raises.
+    """
     ref_lang = languages[0]
     ref = read_raw(ref_lang, stem)[attrs].sort_values("conceptUri").reset_index(drop=True)
 
+    n_before = len(ref)
+    ref = ref.drop_duplicates().reset_index(drop=True)
+    if len(ref) < n_before:
+        print(f"  {stem}: collapsed {n_before - len(ref)} duplicate row(s)")
+
+    conflicting = ref.loc[ref["conceptUri"].duplicated(keep=False), "conceptUri"].unique()
+    if len(conflicting):
+        raise ValueError(
+            f"{stem}: {len(conflicting)} concept URI(s) appear more than once with "
+            f"differing attributes, e.g. {conflicting[0]}. Resolve before building."
+        )
+
     for lang in languages[1:]:
         other = read_raw(lang, stem)[attrs].sort_values("conceptUri").reset_index(drop=True)
+        other = other.drop_duplicates().reset_index(drop=True)
         if not ref["conceptUri"].equals(other["conceptUri"]):
             raise ValueError(
                 f"{stem}: concept URIs differ between '{ref_lang}' and '{lang}'. "
@@ -112,7 +134,7 @@ def build_labels(languages: list[str]) -> pd.DataFrame:
                     "labelType": kind,
                     "label": sub[col].to_numpy(),
                 }))
-    return pd.concat(parts, ignore_index=True)
+    return pd.concat(parts, ignore_index=True).drop_duplicates().reset_index(drop=True)
 
 
 def build_texts(languages: list[str]) -> pd.DataFrame:
@@ -129,7 +151,15 @@ def build_texts(languages: list[str]) -> pd.DataFrame:
             sub["conceptKind"] = "skill" if stem == "skills" else "occupation"
             parts.append(sub[["conceptUri", "conceptKind", "language",
                               "preferredLabel", "description"]])
-    return pd.concat(parts, ignore_index=True)
+    texts = pd.concat(parts, ignore_index=True).drop_duplicates().reset_index(drop=True)
+
+    dupes = texts.duplicated(subset=["conceptUri", "language"], keep=False)
+    if dupes.any():
+        raise ValueError(
+            f"texts: {texts.loc[dupes, 'conceptUri'].nunique()} concept(s) have more "
+            f"than one distinct text row per language. Resolve before building."
+        )
+    return texts
 
 
 def profile(skills, occupations, relations, labels, texts, languages) -> str:
