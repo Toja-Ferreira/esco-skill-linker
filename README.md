@@ -22,7 +22,7 @@ knowledge concepts it corresponds to, from a candidate space of 13,960 concepts.
 
 ESCO's **descriptions are complete in both languages** — 100% of skills and occupations carry
 one in Portuguese and in English. ESCO's **alternative labels are not**: English skills carry
-86,692 alt-labels, Portuguese skills carry 3,652. A **23.7× gap**.
+86,690 alt-labels, Portuguese skills carry 3,652. A **23.75× gap**.
 
 Lexical retrieval therefore starts from a heavily unequal footing across the two languages,
 while dense retrieval over descriptions does not. Hence:
@@ -123,8 +123,9 @@ if the ESCO links become available.
 
 ## Dataset
 
-ESCO v1.2.1, classification release, CSV distribution, `pt` and `en`. All figures measured from
-the release.
+ESCO v1.2.1, classification release, CSV distribution, `pt` and `en`. All figures below are
+measured by `src/ingest/build.py` and recorded in
+[`results/dataset_profile.md`](results/dataset_profile.md).
 
 ### Concepts
 
@@ -139,19 +140,28 @@ the release.
 Reusability level: sector-specific 6,667 · cross-sector 3,788 · occupation-specific 3,047 ·
 transversal 453 · blank 5.
 
+The 5 concepts with no `skillType` or `reuseLevel` are the DigComp competence areas
+(*segurança TIC*, *criação de conteúdos digitais*, and three others) — container concepts from
+a framework layered onto ESCO. They are real concepts, kept in the index, and are not expected
+to appear as gold.
+
 ### Text availability
 
 | Field | PT skills | EN skills |
 |---|---|---|
 | `description` | 13,960 (100%) | 13,960 (100%) |
 | `altLabels` — concepts covered | 1,130 (8.1%) | 13,942 (99.9%) |
-| `altLabels` — total labels | 3,652 | **86,692** |
+| `altLabels` — total labels | 3,652 | **86,690** |
 | `definition` | 0 | 0 |
 | `scopeNote` | 0 | 0 |
 
-`definition` and `scopeNote` are empty throughout and are dropped. Occupations carry alt-labels
-in Portuguese at 85.1%, mostly gendered pairs (*Diretor técnico / Diretora técnica*); the
-asymmetry above is specific to skills.
+`definition` and `scopeNote` are empty throughout and are dropped.
+
+**The asymmetry is concentrated on the corpus side.** Occupations — which supply the queries —
+carry 8,934 Portuguese alt-labels against 30,417 English, a 3.4× gap, much of it gendered pairs
+(*Diretor técnico / Diretora técnica*). Skills — the retrieval corpus — differ by 23.75×. So
+Portuguese queries are only mildly disadvantaged while the documents being searched are
+severely so, which is precisely where a lexical method needs surface forms to match against.
 
 Preferred-label coverage is essentially complete in Portuguese: 20,110 PT preferred labels
 against 20,130 EN across all concept types. Any PT–EN performance gap is therefore a genuine
@@ -266,8 +276,8 @@ Each scored on the same frozen split, with latency and cost recorded alongside q
   are occupation descriptions with a mean of 22.2 gold skills each. Real learning outcomes run
   10–15 words with 1–3 concepts. These reward different systems. Mitigated by also scoring
   per-sentence, and by the hand-labelled set below.
-- **Any lexical PT–EN gap is partly a corpus artefact.** With 23.7× fewer alternative labels in
-  Portuguese, a BM25 gap measures ESCO's label coverage as much as the method.
+- **Any lexical PT–EN gap is partly a corpus artefact.** With 23.75× fewer alternative labels on
+  the skills being retrieved, a BM25 gap measures ESCO's label coverage as much as the method.
 - **Reality check set:** 150–250 hand-labelled Portuguese course units. Annotation uses pooling
   — run every approach, pool the top-k from each, judge only pooled candidates — so recall is
   *recall within pool*, not true recall. A large gap between benchmark and hand-labelled

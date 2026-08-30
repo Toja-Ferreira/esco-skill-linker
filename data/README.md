@@ -13,8 +13,8 @@ used, so results stay reproducible against a verifiable input.
 | Format | csv |
 | Languages | `pt`, `en` |
 | Portal | https://esco.ec.europa.eu/en/use-esco/download |
-| Downloaded | *(YYYY-MM-DD — fill in)* |
-| Release date | 2025-12-10 |
+| Downloaded | *(2026-08-28)* |
+| Release date | December 2025 |
 
 The portal requires registration, so this step cannot be automated. The checksums below make
 the manual step auditable: anyone can download the same release and confirm they hold identical
