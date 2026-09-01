@@ -6,12 +6,29 @@ not.
 
 | # | experiment | generated output | script |
 |---|---|---|---|
-| 01 | BM25 lexical baseline | [`bm25.md`](bm25.md), [`bm25_summary.csv`](bm25_summary.csv), [`bm25_per_query.csv`](bm25_per_query.csv) | [`experiments/01_bm25.py`](../experiments/01_bm25.py) |
-| 02 | Quality by gold set size | [`gold_size_slice.md`](gold_size_slice.md), [`gold_size_slice.csv`](gold_size_slice.csv) | [`experiments/02_gold_size_slice.py`](../experiments/02_gold_size_slice.py) |
+| 01 | BM25 lexical baseline | [`bm25.md`](bm25.md) | [`experiments/01_bm25.py`](../experiments/01_bm25.py) |
+| 02 | Quality by gold set size | [`gold_size_slice.md`](gold_size_slice.md) | [`experiments/02_gold_size_slice.py`](../experiments/02_gold_size_slice.py) |
+| 03 | Lexical overlap, query to gold | [`lexical_overlap.md`](lexical_overlap.md) | [`experiments/03_lexical_overlap.py`](../experiments/03_lexical_overlap.py) |
+| 04 | IDF-weighted overlap | [`weighted_overlap.md`](weighted_overlap.md) | [`experiments/04_weighted_overlap.py`](../experiments/04_weighted_overlap.py) |
+| 05 | BM25 with stopword removal | [`bm25_stopwords.md`](bm25_stopwords.md) | [`experiments/05_stopwords.py`](../experiments/05_stopwords.py) |
 
 Also here: [`dataset_profile.md`](dataset_profile.md) and
 [`split_profile.md`](split_profile.md), describing the release and the frozen
 evaluation split.
+
+## Current best lexical baseline
+
+BM25, labels plus description, stemmed, stopwords removed. 608 held-out
+occupation descriptions against all 13,939 skills.
+
+| | nDCG@10 | 95% CI | P@10 | R@10 | MRR |
+|---|---:|---|---:|---:|---:|
+| English | 0.325 | [0.308, 0.342] | 0.250 | 0.134 | 0.611 |
+| Portuguese | 0.266 | [0.250, 0.281] | 0.203 | 0.107 | 0.524 |
+
+English leads by 22.3%. Experiment 01 reported 0.309 and 0.248 with a 25.0% gap;
+those figures used no stopword list, which experiment 05 showed to be a
+suboptimal configuration for both languages and a worse one for Portuguese.
 
 ---
 
@@ -19,34 +36,26 @@ evaluation split.
 
 **Recall@k is capped well below 1.** Occupations carry around 22 essential
 skills on average and only 10 fit in a top-10, so the highest recall@10
-achievable on this split is **0.543**. A recall@10 of 0.126 is 23% of what is
+achievable on this split is **0.543**. A recall@10 of 0.134 is 25% of what is
 reachable.
 
 | k | 1 | 3 | 5 | 10 | 20 | 50 |
 |---|---:|---:|---:|---:|---:|---:|
 | max recall@k | 0.056 | 0.167 | 0.278 | 0.543 | 0.856 | 0.993 |
 
-**Precision and MRR answer different questions.** BM25's best English run has
-P@10 of 0.235, so most of what it shows is wrong, alongside MRR of 0.599,
-meaning the first genuinely essential skill usually appears around rank 2 out of
-13,939 candidates. Lexical matching finds one correct skill easily and the full
-set poorly. Which of those matters depends on the application. For suggesting
-skills to a human reviewer, MRR is closer to the quantity of interest.
+**Precision and MRR answer different questions.** The best English run has P@10
+of 0.250, so most of what it shows is wrong, alongside MRR of 0.611, meaning the
+first genuinely essential skill usually appears around rank 2 out of 13,939
+candidates. Lexical matching finds one correct skill easily and the full set
+poorly.
 
 ---
 
 ## 01: BM25 lexical baseline
 
-608 test occupations, full index of 13,939 skills, 16 conditions covering 2
-languages, 4 document variants and stemmed against unstemmed. Best configuration
-in both languages is labels plus description with stemming.
-
-| | nDCG@10 | 95% CI | R@10 | MRR |
-|---|---:|---|---:|---:|
-| **en** labels_desc stemmed | 0.309 | [0.293, 0.325] | 0.126 | 0.599 |
-| **pt** labels_desc stemmed | 0.248 | [0.232, 0.262] | 0.099 | 0.506 |
-
-English leads by 25% relative, with well separated intervals.
+608 test occupations, full index, 16 conditions covering 2 languages, 4 document
+variants and stemmed against unstemmed. No stopword removal, which experiment 05
+later revised.
 
 ### The alternative-label asymmetry behaves as predicted
 
@@ -77,113 +86,52 @@ more text and still scores lower:
 Portuguese preferred labels are 36% longer than English ones and score 16%
 lower. Descriptions are 14% longer and score 24% lower. Every interval is
 disjoint. A shortage of text does not explain this, which rules out the original
-framing of the project's central question but does not by itself identify the
+framing of the project's central question. Experiments 03 to 05 pursue the
 cause.
 
-### Two candidate explanations, currently not separable
+### Preprocessing audit
 
-The description-only gap has at least two possible causes, and the numbers above
-cannot distinguish them.
+Every cross-language claim depends on the two languages receiving identical
+treatment. Recorded so it can be checked rather than assumed. Package versions
+are pinned in [`requirements.txt`](../requirements.txt).
 
-**Candidate A: translation breaks terminological consistency.** ESCO is authored
-in English and translated into the other 27 languages. Occupation descriptions
-and skill entries are separate records, plausibly translated independently.
-English inherits the source vocabulary on both sides, so an occupation
-description and its gold skill often share exact strings. A Portuguese
-translator rendering the same concept in two records need not choose the same
-word, and BM25 scores nothing for near-synonyms.
+| | Portuguese | English |
+|---|---|---|
+| Tokeniser | `re.findall(r"\w+", text.lower())`, `re.UNICODE` | identical |
+| Accent handling | preserved, not folded | preserved, not folded |
+| Stemmer, stemmed runs | Snowball `portuguese` | Snowball `english` |
+| Stopword list, experiment 01 | none | none |
+| Stopword list, experiment 05 | NLTK `portuguese` | NLTK `english` |
+| BM25 implementation | `rank_bm25.BM25Okapi` | identical |
+| k1 / b / epsilon | 1.5 / 0.75 / 0.25 (defaults) | 1.5 / 0.75 / 0.25 (defaults) |
+| Index contents | all 13,939 skills | all 13,939 skills |
+| Query text | occupation `description` | occupation `description` |
 
-**Candidate B: the Portuguese preprocessing in this repository is weaker than
-the English.** Both languages run through the same code path, but that path is
-not equally good at both:
+Parameters are never passed explicitly, so both languages take the same library
+defaults. The tokeniser, stemmer and stopword list live on `BM25Index`, which
+applies them to documents at construction and to queries at search time, so the
+two cannot diverge.
 
-- *Stemmer quality.* Snowball's Portuguese stemmer and its English stemmer are
-  different algorithms of different maturity. If Portuguese under-conflates,
-  morphological variants of the same term stay distinct and score nothing. The
-  stemming table above is consistent with this: Portuguese is the more heavily
-  inflected language and gains *less* from stemming, which is what
-  under-conflation would look like. That observation was recorded as unexplained
-  before this confound was identified.
-- *Tokenisation.* A single `\w+` regex is applied to both languages. It keeps
-  accented characters, but makes no other language-specific accommodation.
-- *Length normalisation.* BM25 normalises each document against its own corpus
-  mean, so the two languages are not penalised against a shared baseline.
-  However, the corpora differ enormously in scale: under `labels` the English
-  mean is 29.3 tokens against 6.1 in Portuguese. Length normalisation and IDF
-  behave differently at those scales, so the two runs are not the same retrieval
-  problem with the language swapped.
+Three asymmetries remain that configuration cannot remove:
 
-No stopword list is used in either language, so that particular asymmetry is
-ruled out.
+1. **The stemmers are different algorithms.** Snowball's Portuguese and English
+   stemmers were developed separately and there is no reason to assume equal
+   conflation quality. Experiment 03 measures this directly.
+2. **`b = 0.75` normalises against each corpus's own mean length**, so there is
+   no shared baseline penalising the longer language. But the corpora differ in
+   scale rather than by a constant: under `labels` the English mean is 29.3
+   tokens against 6.1 in Portuguese.
+3. **`epsilon = 0.25` floors negative IDF values.** Terms appearing in more than
+   half the corpus get a small positive score rather than a negative one. How
+   often the floor is hit depends on term distribution, which differs between
+   corpora. Not measured.
 
-Until A and B are separated, "Portuguese retrieves worse" and "this
-repository's Portuguese preprocessing is worse" are indistinguishable from these
-results. The finding as it stands is that a like-for-like BM25 configuration
-performs worse in Portuguese, which is a real and reportable result about this
-pipeline. It is not yet evidence about ESCO's translation quality.
-
-### Tests that would separate them
-
-**Token overlap diagnostic, raw and stemmed.** Per language, measure token
-overlap between each test occupation's description and the text of its gold
-skills. Running it on raw tokens as well as stemmed matters: raw alone conflates
-vocabulary choice with morphology, and the difference between the two is itself
-a measure of what stemming recovers in each language. Cheap, no new
-infrastructure. If Portuguese overlap is not lower than English, candidate A is
-already in difficulty.
-
-**Machine-translation control.** Translate the English occupation descriptions
-and skill texts into Portuguese with a single MT system, then score that corpus
-against official ESCO Portuguese. One MT system renders a given source term the
-same way every time, which is exactly the consistency candidate A claims human
-translators lost. Both conditions pass through identical Portuguese
-tokenisation, stemming and BM25 parameters, so candidate B is controlled by
-construction.
-
-The prediction can fail, which is what makes it worth running. If MT Portuguese
-beats official Portuguese, candidate A is supported and the result says
-something about ESCO's multilingual quality. If it does not, candidate A is
-wrong.
-
-A reverse control is worth running alongside: translate official Portuguese into
-English and score against official English. If MT English also beats official
-English, the effect is about MT normalising vocabulary in general rather than
-about ESCO translation specifically, and neither candidate is supported.
-
-### Stemming helps, and helps English more
-
-Relative nDCG@10 gain from stemming:
-
-| variant | pt | en |
-|---|---:|---:|
-| preferred | +13.6% | +23.4% |
-| labels | +13.4% | +11.6% |
-| labels_desc | +6.9% | +5.7% |
-| description | +10.5% | +12.3% |
-
-Portuguese is the more heavily inflected language, so the expectation was that
-it would gain more. On `preferred`, where a single stem match carries most of
-the signal, it gains roughly half as much.
-
-This was initially recorded as an unexplained curiosity. It is better read as
-evidence for candidate B above: a stemmer that under-conflates would both gain
-less from being applied and depress the language's scores throughout. The two
-observations have the same possible cause, and the diagnostics listed above test
-both at once.
-
-### Micro-recall trails macro-recall
-
-At the English best, macro 0.126 against micro 0.104. Micro-recall pools all
-gold across queries, so occupations with large gold sets dominate it. The gap
-means performance degrades as the gold set grows, which is expected with a fixed
-top-10 against gold sets ranging from 6 to 74. Worth watching, since
-micro-recall is the form comparable to the Commission's published figures.
+No parameter tuning has been done in either language.
 
 ### Cost
 
 26 to 50 ms per query, index build under 7 s, everything in memory. Any method
-costing materially more should be judged on quality per unit latency rather than
-quality alone.
+costing materially more should be judged on quality per unit latency.
 
 ---
 
@@ -193,7 +141,7 @@ The benchmark queries occupations carrying a mean of 22 essential skills. The
 target application queries learning outcomes carrying 1 to 3. If method
 behaviour shifts as gold sets shrink, the benchmark is a poor proxy. This slices
 the recorded per-query results from experiment 01 into gold-size quartiles. No
-retrieval is re-run, so the numbers are the ones already committed.
+retrieval is re-run.
 
 | bucket | queries | essential skills | median | max recall@10 |
 |---|---:|---|---:|---:|
@@ -204,7 +152,7 @@ retrieval is re-run, so the numbers are the ones already committed.
 
 ### The English advantage is uniform across gold set sizes
 
-nDCG@10, best configuration:
+nDCG@10:
 
 | bucket | pt | en | en advantage |
 |---|---|---|---:|
@@ -214,38 +162,221 @@ nDCG@10, best configuration:
 | Q4 largest | 0.281 [0.250, 0.314] | 0.330 [0.296, 0.364] | +17.2% |
 
 English leads in all four buckets, by between 17% and 30%, with no trend as gold
-sets grow. Precision@10 and recall@10 show the same pattern at similar
-magnitudes.
-
-Each bucket holds around 150 queries, roughly a quarter of the split, so
-intervals are wider than the pooled comparison and two buckets do not separate
-individually. The evidence is the consistency of direction and magnitude across
-four independent buckets, not any single bucket. The pooled 608-query comparison
-separates the two languages cleanly.
-
-A uniform effect is consistent with a systematic cause such as translation drift
-rather than something that only bites in one regime.
+sets grow. Each bucket holds around 150 queries, so intervals are wider than the
+pooled comparison and two buckets do not separate individually. The evidence is
+the consistency of direction and magnitude across four independent buckets. The
+pooled 608-query comparison separates the two languages cleanly.
 
 ### nDCG is flat across buckets; recall and precision are not
 
 English nDCG@10 runs 0.289 to 0.330 with no trend, because nDCG normalises by
-the ideal ranking and so places a query with 6 gold and a query with 74 on the
-same scale.
+the ideal ranking and so places a query with 6 gold and one with 74 on the same
+scale.
 
 Recall@10 falls from 0.188 to 0.076 across the buckets while precision@10 rises
-from 0.208 to 0.271. Neither movement reflects the method changing. The recall
-ceiling drops from 0.861 to 0.279 across the same buckets, and more gold means
-more chances for any given slot to hit. Raw recall and precision are not
-comparable across buckets for this reason.
+from 0.208 to 0.271. Neither reflects the method changing. The recall ceiling
+drops from 0.861 to 0.279 over the same range, and more gold means more chances
+for any slot to hit. Raw recall and precision are not comparable across buckets.
 
 ### Bearing on the query shape limitation
 
-Q1, with a median of 12 essential skills, is the closest available approximation
-to learning outcome density, which the Commission's pilot reports place at 1 to
-3 concepts. Performance there matches the pooled figures closely: English 0.308
-against 0.309 pooled, Portuguese 0.237 against 0.248.
+Q1, with a median of 12 essential skills, is the closest available
+approximation to learning outcome density. Performance there matches the pooled
+figures: English 0.308 against 0.309 pooled, Portuguese 0.237 against 0.248.
 
-Method behaviour is therefore stable as gold sets shrink toward the target task,
-across the range this benchmark can test. Query *length* remains untested, since
-all queries here are full occupation descriptions rather than the 10 to 15 word
-statements the application would receive.
+Method behaviour is stable as gold sets shrink toward the target task, across
+the range this benchmark can test. Query length remains untested, since all
+queries here are full occupation descriptions.
+
+---
+
+## 03: How much vocabulary do queries share with their gold skills?
+
+BM25 can only score a match on tokens present on both sides. If Portuguese
+occupation descriptions share less vocabulary with their gold skills, that is
+the mechanism behind the retrieval gap. Measures the share of an occupation's
+gold-skill vocabulary that appears in its description. No retrieval is run.
+
+| field | stemming | pt | en |
+|---|---|---|---|
+| description | raw | 0.0798 [0.0770, 0.0830] | 0.0789 [0.0758, 0.0822] |
+| description | stemmed | 0.1051 [0.1015, 0.1090] | 0.0982 [0.0946, 0.1021] |
+| labels | raw | 0.1654 [0.1597, 0.1710] | 0.0912 [0.0880, 0.0945] |
+| labels | stemmed | 0.2146 [0.2071, 0.2218] | 0.1245 [0.1200, 0.1289] |
+
+On `description`, where the gold vocabularies are comparable in size (271 tokens
+Portuguese against 257 English), Portuguese overlap is equal on raw tokens and
+higher once stemmed.
+
+The `labels` rows are not comparable between languages, because English's gold
+vocabulary is more than twice as large thanks to alternative label coverage, so
+the denominators differ.
+
+### Two explanations ruled out
+
+**Translation drift is not supported.** If independently translated records had
+diverged in word choice, Portuguese would share less vocabulary with its gold
+skills. It shares the same or slightly more. The prediction was directional and
+went the other way.
+
+**Portuguese stemmer under-conflation is not supported.** The competing
+explanation was that Snowball Portuguese conflates less than Snowball English,
+leaving morphological variants unmatched. Stemming raises Portuguese coverage on
+descriptions by 31.7% against English's 24.5%, and shrinks the gold vocabulary
+by 12.5% against 11.7%. The Portuguese stemmer conflates at least as much.
+
+So Portuguese shares as much vocabulary with its gold skills as English does,
+and still retrieves worse. Counting token types was the wrong measure.
+
+---
+
+## 04: Is the shared vocabulary worth the same in both languages?
+
+Experiment 03 counted token types, treating every shared token alike. BM25 does
+not: each match is weighted by inverse document frequency, so a term appearing
+throughout the corpus contributes almost nothing. This recomputes the same
+overlap three ways.
+
+On `description`:
+
+| measure | pt raw | en raw | pt stemmed | en stemmed |
+|---|---:|---:|---:|---:|
+| type coverage | 0.0798 | 0.0789 | 0.1051 | 0.0982 |
+| IDF-weighted | 0.0481 | **0.0534** | 0.0687 | **0.0702** |
+| content-only | 0.0424 | **0.0506** | 0.0616 | **0.0636** |
+
+**The ranking inverts.** Portuguese leads on token counts and loses on both
+weighted measures. Equal vocabulary overlap, less usable signal.
+
+Content-only coverage removes each corpus's 50 most frequent terms. Doing so
+costs Portuguese 47% of its raw overlap against English's 36%, so nearly half of
+the Portuguese overlap was carried by the fifty commonest terms in the corpus.
+
+### The mechanism
+
+The most frequent terms in each description corpus, stemmed:
+
+- **pt**: `de` `e` `a` `com` `par` `o` `os` `as` `em` `ou` `que` `da` `do` `utiliz` `dos`
+- **en**: `and` `the` `of` `to` `in` `or` `a` `as` `for` `use` `such` `with` `on` `that` `by`
+
+Both lists are dominated by function words, and in similar aggregate volume. The
+difference is in how that volume is distributed. Portuguese carries `o`, `os`,
+`as`, `da`, `do`, `dos` as six distinct high-frequency tokens where English has
+`the` once. Each Portuguese form has its own document frequency and its own IDF,
+so none is individually common enough to be discounted as heavily as `the` is,
+and more of that mass survives into the score.
+
+`utiliz` at 2,591 and `use` at 2,691 are the same content word at almost
+identical frequency, which is a useful check that the two corpora really are
+translations of each other.
+
+This also explains why a frequency-derived stopword list would be the wrong
+instrument. Cutting each corpus's top N terms removes different grammatical
+categories in each language, rebuilding the asymmetry it is meant to remove.
+
+---
+
+## 05: Does stopword removal narrow the gap?
+
+Experiment 01 used no stopword list in either language, on the reasoning that
+IDF already discounts common terms. Experiment 04 showed that reasoning was
+incomplete. This reruns all conditions with NLTK's curated lists, which derive
+from Snowball and so pair with the stemmers already in use. Removal happens
+before stemming, since the lists are surface forms.
+
+The prediction, recorded before the run: removal helps Portuguese more, and the
+gap narrows.
+
+### The prediction held in all eight comparisons
+
+Relative nDCG@10 gain from removing stopwords:
+
+| documents | stemming | pt | en |
+|---|---|---:|---:|
+| preferred | raw | +35.0% | +33.6% |
+| preferred | stemmed | +26.7% | +24.3% |
+| labels | raw | +36.4% | +20.4% |
+| labels | stemmed | +29.1% | +14.2% |
+| labels_desc | raw | +8.9% | +6.2% |
+| labels_desc | stemmed | +7.4% | +5.1% |
+| description | raw | +13.4% | +7.5% |
+| description | stemmed | +10.2% | +4.7% |
+
+Portuguese gains more in every case. On `description` stemmed, more than twice
+as much.
+
+### The gap narrows everywhere, but does not close
+
+English advantage in nDCG@10:
+
+| documents | stemming | stops kept | stops removed | change |
+|---|---|---:|---:|---:|
+| preferred | raw | +15.8% | +14.6% | −1.2 pp |
+| preferred | stemmed | +25.8% | +23.4% | −2.4 pp |
+| labels | raw | +39.8% | +23.4% | −16.4 pp |
+| labels | stemmed | +37.5% | +21.7% | −15.8 pp |
+| labels_desc | raw | +26.4% | +23.3% | −3.1 pp |
+| labels_desc | stemmed | +25.0% | +22.3% | −2.7 pp |
+| description | raw | +22.4% | +16.0% | −6.4 pp |
+| description | stemmed | +24.3% | +18.2% | −6.1 pp |
+
+On `description` stemmed, the fairest comparison available, preprocessing
+accounted for roughly a quarter of the gap: 6.1 points of 24.3. The remaining
+18.2% persists with disjoint intervals.
+
+### Confirmation in the token counts
+
+Share of tokens removed as stopwords:
+
+| documents | pt | en |
+|---|---:|---:|
+| preferred | 30.6% | 11.1% |
+| labels | 29.5% | 15.4% |
+| labels_desc | 39.0% | 24.9% |
+| description | 41.3% | 37.4% |
+
+Portuguese carries more function-word mass in every variant. The `preferred`
+row is the most striking: nearly a third of a Portuguese skill label is
+stopwords, against a ninth in English.
+
+### What this settles
+
+The absence of a stopword list was a genuine confound and a mistake in
+experiment 01's configuration. It cost both languages performance and cost
+Portuguese more. Correcting it changes the headline figures and narrows the gap
+by about a quarter.
+
+It does not explain the remainder. After correction, English still leads by
+18.2% on the description variant where both languages have complete coverage,
+comparable vocabulary overlap, and now equivalent function-word handling. The
+three cheapest explanations, missing labels, translation drift, and preprocessing
+asymmetry, have each been tested and each accounts for only part or none of the
+effect.
+
+---
+
+## Where this leaves the central question
+
+The project set out to ask whether dense retrieval could compensate for a 23.8x
+deficit in Portuguese alternative labels. That framing survives only partly.
+
+What the label deficit costs is now measured: about a fifth of English's lexical
+quality on the `labels` variant, and Portuguese cannot access any of it. That
+part of the original question stands.
+
+But on `description`, where ESCO gives both languages complete and comparable
+coverage, English still retrieves 18.2% better after every preprocessing
+correction tested. Portuguese shares as much gold vocabulary, its stemmer
+conflates as well, and its function words are now removed. The residual is not
+explained by anything measured so far.
+
+Candidates that remain untested include BM25's length normalisation behaving
+differently across corpora that differ in scale, the negative-IDF floor being hit
+at different rates, and term frequency distributions differing in ways that
+change how discriminative the shared vocabulary is beyond what a stopword list
+captures.
+
+For the retrieval work that follows, the useful framing is narrower than the
+original: a lexical method carries a Portuguese penalty that survives careful
+preprocessing, and the question is how much of that penalty a dense multilingual
+model removes.

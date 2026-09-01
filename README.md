@@ -12,22 +12,27 @@ Portuguese-focused, evaluated against English as the comparison language.
 ## Results so far
 
 BM25 over all 13,939 skills, 608 held-out occupation descriptions, best configuration in each
-language (preferred plus alternative labels plus description, stemmed):
+language (preferred plus alternative labels plus description, stemmed, stopwords removed):
 
 | | nDCG@10 | 95% CI | recall@10 | MRR |
 |---|---:|---|---:|---:|
-| English | 0.309 | [0.293, 0.325] | 0.126 | 0.599 |
-| Portuguese | 0.248 | [0.232, 0.262] | 0.099 | 0.506 |
+| English | 0.325 | [0.308, 0.342] | 0.134 | 0.611 |
+| Portuguese | 0.266 | [0.250, 0.281] | 0.107 | 0.524 |
 
-Recall@10 is capped at 0.543 on this split, so those figures are 23% and 18% of what is
+Recall@10 is capped at 0.543 on this split, so those figures are 25% and 20% of what is
 reachable.
 
-The Portuguese deficit is only partly explained by missing alternative labels. On
-description-only retrieval, where both languages have complete coverage and Portuguese
-documents are 14% longer, English still leads by 24%. Two explanations remain open, one about
-ESCO's translation consistency and one about this repository's Portuguese preprocessing, and
-they are not yet separable. See [`results/README.md`](results/README.md) for the analysis and
-the experiments that would distinguish them.
+Five experiments so far, four of them spent working out why Portuguese retrieves worse. The
+missing alternative labels account for part of it, worth around a fifth of English's quality on
+label-only retrieval. Absent stopword handling accounted for another quarter of the gap, which
+was a flaw in this repository rather than in the data. Two further explanations were tested and
+found unsupported: Portuguese shares as much gold vocabulary with its skills as English does,
+and its stemmer conflates at least as well.
+
+After all corrections, English still leads by 18.2% on description-only retrieval, where both
+languages have complete and comparable coverage. That residual is unexplained, and it is what
+the dense retrieval comparison is now aimed at. Full analysis in
+[`results/README.md`](results/README.md).
 
 ## The problem
 
@@ -313,12 +318,13 @@ Each scored on the same frozen split, with latency and cost recorded alongside q
 - **Recall is bounded well below 1.** With around 22 gold skills per query, recall@10 cannot
   exceed 0.543 on this split. Absolute recall figures should be read against the ceilings
   reported alongside them.
-- **Cross-language comparisons are confounded with preprocessing quality.** Both languages run
-  through the same code, but that code is not equally good at both. Snowball's Portuguese and
-  English stemmers are different algorithms, a single tokenising regex serves both, and the two
-  corpora differ enough in mean document length that BM25's length normalisation and IDF do not
-  behave equivalently. A result showing Portuguese retrieving worse is a result about this
-  pipeline, and is not yet evidence about ESCO's Portuguese content.
+- **Cross-language comparisons are partly confounded with preprocessing quality.** Both
+  languages run through identical code and identical parameters, audited in
+  [`results/README.md`](results/README.md), but identical treatment is not equal treatment.
+  Absent stopword handling was found to cost Portuguese roughly a quarter of the measured gap
+  and has been corrected. Snowball's two stemmers remain different algorithms, and the corpora
+  differ enough in scale that BM25's length normalisation and negative-IDF floor may not behave
+  equivalently. Neither has been ruled out.
 
 ## Repository layout
 

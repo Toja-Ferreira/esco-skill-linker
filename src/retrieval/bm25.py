@@ -16,6 +16,13 @@ changes the two languages very differently.
 matching penalises it more. Running with and without separates the language
 effect from the preprocessing effect.
 
+**Stopwords** — off by default, which is how the baseline in
+`experiments/01_bm25.py` was run. Experiments 03 and 04 found that Portuguese
+and English share comparable vocabulary with their gold skills by token count,
+but that the Portuguese overlap carries less IDF weight, because Portuguese
+spreads its function words across more distinct high-frequency forms. Removing
+them is therefore a language-sensitive intervention rather than a neutral one.
+
 Queries are occupation descriptions. Query and index must use the same
 tokenisation, which `BM25Index` enforces by owning both.
 """
@@ -36,6 +43,10 @@ TOKEN_RE = re.compile(r"\w+", re.UNICODE)
 # Snowball language names for the languages this project uses.
 STEMMER_LANGS = {"pt": "portuguese", "en": "english"}
 
+# NLTK's stopword corpus name per language. NLTK's lists derive from Snowball,
+# so they pair with the stemmers above rather than being an unrelated choice.
+STOPWORD_LANGS = {"pt": "portuguese", "en": "english"}
+
 
 def get_stemmer(lang: str):
     """Snowball stemmer for `lang`, or None if unavailable."""
@@ -47,14 +58,40 @@ def get_stemmer(lang: str):
     return snowballstemmer.stemmer(name)
 
 
-def tokenize(text: str, stemmer=None) -> list[str]:
-    """Lowercase, split on word characters, optionally stem.
+def get_stopwords(lang: str) -> frozenset[str]:
+    """Curated stopword list for `lang`.
 
-    No stopword removal: BM25's IDF term already discounts words that appear
-    in most documents, so an explicit stoplist would add a language-specific
-    choice without adding much.
+    Curated rather than frequency-derived on purpose. Cutting each corpus's top
+    N terms removes different grammatical categories in each language, which
+    reintroduces the asymmetry the list is meant to remove. Portuguese spreads
+    its definite article across six high-frequency forms (o, a, os, as, do, da)
+    where English has one, so a frequency cutoff treats the two languages
+    unequally by construction.
+    """
+    from nltk.corpus import stopwords
+
+    name = STOPWORD_LANGS.get(lang)
+    if name is None:
+        raise ValueError(f"No stopword list configured for language '{lang}'")
+    try:
+        return frozenset(stopwords.words(name))
+    except LookupError as exc:
+        raise RuntimeError(
+            "NLTK stopwords corpus not present. Run:\n"
+            "    python -c \"import nltk; nltk.download('stopwords')\""
+        ) from exc
+
+
+def tokenize(text: str, stemmer=None, stopwords: frozenset[str] | None = None) -> list[str]:
+    """Lowercase, split on word characters, drop stopwords, optionally stem.
+
+    Stopwords are removed before stemming, because the lists are of surface
+    forms. Stemming first would leave stemmed function words that no longer
+    match the list.
     """
     tokens = TOKEN_RE.findall(text.lower())
+    if stopwords is not None:
+        tokens = [t for t in tokens if t not in stopwords]
     if stemmer is not None:
         tokens = stemmer.stemWords(tokens)
     return tokens
@@ -87,16 +124,19 @@ def build_documents(
 class BM25Index:
     """A fitted BM25 index over a fixed set of skill URIs.
 
-    Owns the tokeniser so queries cannot accidentally be processed differently
-    from the documents they are matched against.
+    Owns the tokeniser, stemmer and stopword list so queries cannot
+    accidentally be processed differently from the documents they are matched
+    against.
     """
 
-    def __init__(self, uris: Sequence[str], documents: Sequence[str], stemmer=None):
+    def __init__(self, uris: Sequence[str], documents: Sequence[str],
+                 stemmer=None, stopwords: frozenset[str] | None = None):
         if len(uris) != len(documents):
             raise ValueError("uris and documents must be the same length")
         self.uris = np.asarray(uris)
         self.stemmer = stemmer
-        tokenised = [tokenize(d, stemmer) for d in documents]
+        self.stopwords = stopwords
+        tokenised = [tokenize(d, stemmer, stopwords) for d in documents]
         self.empty = sum(1 for t in tokenised if not t)
         self.mean_length = float(np.mean([len(t) for t in tokenised]))
         self.bm25 = BM25Okapi(tokenised)
@@ -110,7 +150,7 @@ class BM25Index:
         Ties are broken by the corpus order, which is stable across runs
         because the corpus is sorted by URI upstream.
         """
-        tokens = tokenize(query, self.stemmer)
+        tokens = tokenize(query, self.stemmer, self.stopwords)
         if not tokens:
             return []
         scores = self.bm25.get_scores(tokens)
