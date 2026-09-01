@@ -11,6 +11,7 @@ not.
 | 03 | Lexical overlap, query to gold | [`lexical_overlap.md`](lexical_overlap.md) | [`experiments/03_lexical_overlap.py`](../experiments/03_lexical_overlap.py) |
 | 04 | IDF-weighted overlap | [`weighted_overlap.md`](weighted_overlap.md) | [`experiments/04_weighted_overlap.py`](../experiments/04_weighted_overlap.py) |
 | 05 | BM25 with stopword removal | [`bm25_stopwords.md`](bm25_stopwords.md) | [`experiments/05_stopwords.py`](../experiments/05_stopwords.py) |
+| 06 | Parameter sweep, dev tuned | [`bm25_sweep.md`](bm25_sweep.md) | [`experiments/06_bm25_sweep.py`](../experiments/06_bm25_sweep.py) |
 
 Also here: [`dataset_profile.md`](dataset_profile.md) and
 [`split_profile.md`](split_profile.md), describing the release and the frozen
@@ -355,28 +356,109 @@ effect.
 
 ---
 
+## 06: Parameter sweep, and is the baseline fair?
+
+Comparing an untuned lexical baseline against a tuned dense model overstates the
+dense gain, which is a common weakness in retrieval comparisons. This tunes k1
+and b before that comparison is made.
+
+**The sweep runs on dev.** Every earlier experiment scored on test, which was
+sound because nothing was selected on the basis of those scores: all conditions
+were reported. Choosing parameters by their score is fitting, so the test split
+is touched once per language with the already-selected values. Dev had been
+reserved for this and until now unused.
+
+42 grid points per language on 2,431 dev queries, `labels_desc`, stemmed,
+stopwords removed.
+
+### Tuning buys nothing
+
+| language | selected | dev nDCG@10 | test tuned | test default | gain |
+|---|---|---:|---:|---:|---:|
+| pt | k1=1.8, b=0.75 | 0.2802 | 0.2658 | 0.2658 | 0.0% |
+| en | k1=2.1, b=1.0 | 0.3356 | 0.3273 | 0.3252 | +0.7% |
+
+Both gains sit far inside the confidence intervals. The library defaults were
+already essentially optimal for this corpus.
+
+This is a useful negative result. The lexical floor reported here is properly
+calibrated rather than arbitrary, so the dense comparison that follows cannot be
+dismissed as tuned-against-untuned. The reported baseline stays at the defaults,
+since tuned parameters would add a configuration to explain for no measurable
+return.
+
+### Length normalisation is not the residual
+
+The dev surfaces are nearly flat across the useful range of `b`. Portuguese
+peaks at 0.75, with 0.9 giving 0.2787 and 1.0 giving 0.2761. English peaks at
+1.0, with 0.9 at 0.3349 and 0.75 at 0.3334. Moving `b` between 0.75 and 1.0
+changes nDCG@10 by under 0.005 in either language, against a language gap of
+roughly 0.06.
+
+The surfaces do differ in shape: English rises monotonically in `b` while
+Portuguese turns over, which is consistent with the two corpora differing in
+scale. But the magnitude is an order of magnitude too small to account for the
+gap. Selecting on argmax alone would have over-read this.
+
+### Corpus vocabulary size, from experiment 04's records
+
+A further candidate was that translated text is lexically less varied than
+original text, since translators converge on common renderings. A smaller
+effective vocabulary would compress IDF corpus-wide and make concepts harder to
+tell apart.
+
+Distinct terms per corpus, already recorded in `weighted_overlap.csv`:
+
+| field | stemming | pt | en |
+|---|---|---:|---:|
+| description | raw | 17,315 | 15,349 |
+| description | stemmed | 9,517 | 8,930 |
+| labels | raw | 7,694 | 12,369 |
+| labels | stemmed | 5,336 | 7,609 |
+
+On `description`, Portuguese vocabulary is **larger**, by 13% raw and 7%
+stemmed. The prediction was directional and went the other way. The `labels`
+rows differ for the already-known reason of alternative label coverage.
+
+So Portuguese descriptions are more lexically varied than English ones and still
+retrieve worse.
+
+---
+
 ## Where this leaves the central question
 
 The project set out to ask whether dense retrieval could compensate for a 23.8x
 deficit in Portuguese alternative labels. That framing survives only partly.
 
-What the label deficit costs is now measured: about a fifth of English's lexical
+What the label deficit costs is measured: about a fifth of English's lexical
 quality on the `labels` variant, and Portuguese cannot access any of it. That
 part of the original question stands.
 
-But on `description`, where ESCO gives both languages complete and comparable
-coverage, English still retrieves 18.2% better after every preprocessing
-correction tested. Portuguese shares as much gold vocabulary, its stemmer
-conflates as well, and its function words are now removed. The residual is not
-explained by anything measured so far.
+On `description`, where ESCO gives both languages complete and comparable
+coverage, English still retrieves 18.2% better. Six candidate explanations have
+been tested:
 
-Candidates that remain untested include BM25's length normalisation behaving
-differently across corpora that differ in scale, the negative-IDF floor being hit
-at different rates, and term frequency distributions differing in ways that
-change how discriminative the shared vocabulary is beyond what a stopword list
-captures.
+| candidate | verdict |
+|---|---|
+| Missing alternative labels | Accounts for the `labels` gap, not the `description` gap |
+| Translation drift in word choice | Not supported. Portuguese shares as much gold vocabulary (03) |
+| Portuguese stemmer under-conflates | Not supported. It conflates at least as much (03) |
+| Function word density | Real. Accounts for about a quarter of the gap, now corrected (04, 05) |
+| Length normalisation | Negligible. Surfaces flat across `b` (06) |
+| Lexical impoverishment from translation | Not supported. Portuguese vocabulary is larger (06) |
+
+What has not been measured is the competition. Experiments 03 and 04 both
+measured overlap between a query and its **gold** skills. Neither measured
+overlap between a query and the roughly 13,000 **non-gold** skills. Ranking is a
+contest: a gold skill scoring well ranks poorly if many distractors score
+similarly. Only the numerator has been examined.
+
+That is the remaining lexical hypothesis. Portuguese gold skills may score as
+well as English ones in absolute terms while Portuguese distractors also score
+well, so gold does not separate from the field. Experiment 07 measures it
+directly.
 
 For the retrieval work that follows, the useful framing is narrower than the
 original: a lexical method carries a Portuguese penalty that survives careful
-preprocessing, and the question is how much of that penalty a dense multilingual
-model removes.
+preprocessing and parameter tuning, and the question is how much of it a dense
+multilingual model removes.
