@@ -24,8 +24,10 @@ reachable.
 
 The Portuguese deficit is only partly explained by missing alternative labels. On
 description-only retrieval, where both languages have complete coverage and Portuguese
-documents are 14% longer, English still leads by 24%. See
-[`results/README.md`](results/README.md) for the analysis and the hypothesis under test.
+documents are 14% longer, English still leads by 24%. Two explanations remain open, one about
+ESCO's translation consistency and one about this repository's Portuguese preprocessing, and
+they are not yet separable. See [`results/README.md`](results/README.md) for the analysis and
+the experiments that would distinguish them.
 
 ## The problem
 
@@ -311,6 +313,12 @@ Each scored on the same frozen split, with latency and cost recorded alongside q
 - **Recall is bounded well below 1.** With around 22 gold skills per query, recall@10 cannot
   exceed 0.543 on this split. Absolute recall figures should be read against the ceilings
   reported alongside them.
+- **Cross-language comparisons are confounded with preprocessing quality.** Both languages run
+  through the same code, but that code is not equally good at both. Snowball's Portuguese and
+  English stemmers are different algorithms, a single tokenising regex serves both, and the two
+  corpora differ enough in mean document length that BM25's length normalisation and IDF do not
+  behave equivalently. A result showing Portuguese retrieving worse is a result about this
+  pipeline, and is not yet evidence about ESCO's Portuguese content.
 
 ## Repository layout
 

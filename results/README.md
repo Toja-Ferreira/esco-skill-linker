@@ -76,27 +76,79 @@ more text and still scores lower:
 
 Portuguese preferred labels are 36% longer than English ones and score 16%
 lower. Descriptions are 14% longer and score 24% lower. Every interval is
-disjoint. A shortage of text does not explain this.
+disjoint. A shortage of text does not explain this, which rules out the original
+framing of the project's central question but does not by itself identify the
+cause.
 
-### Hypothesis: translation breaks terminological consistency
+### Two candidate explanations, currently not separable
 
-ESCO is authored in English and translated into the other 27 languages.
-Occupation descriptions and skill entries are separate records, plausibly
-translated independently. English inherits the source vocabulary on both sides,
-so an occupation description and its gold skill often share exact strings. A
-Portuguese translator rendering the same concept in two records need not choose
-the same word, and BM25 scores nothing for near-synonyms.
+The description-only gap has at least two possible causes, and the numbers above
+cannot distinguish them.
 
-This is a hypothesis rather than a measurement. The test: per language, compute
-token overlap between each test occupation's description and the text of its
-gold skills. If English overlap is materially higher on the description-only
-variant, where both languages have equivalent coverage, the mechanism is
-confirmed.
+**Candidate A: translation breaks terminological consistency.** ESCO is authored
+in English and translated into the other 27 languages. Occupation descriptions
+and skill entries are separate records, plausibly translated independently.
+English inherits the source vocabulary on both sides, so an occupation
+description and its gold skill often share exact strings. A Portuguese
+translator rendering the same concept in two records need not choose the same
+word, and BM25 scores nothing for near-synonyms.
 
-It reframes the project's central question. The question becomes whether dense
-retrieval can compensate for translation drift, which is closer to what
-embeddings should be good at, and makes the bi-encoder result informative
-whichever way it falls.
+**Candidate B: the Portuguese preprocessing in this repository is weaker than
+the English.** Both languages run through the same code path, but that path is
+not equally good at both:
+
+- *Stemmer quality.* Snowball's Portuguese stemmer and its English stemmer are
+  different algorithms of different maturity. If Portuguese under-conflates,
+  morphological variants of the same term stay distinct and score nothing. The
+  stemming table above is consistent with this: Portuguese is the more heavily
+  inflected language and gains *less* from stemming, which is what
+  under-conflation would look like. That observation was recorded as unexplained
+  before this confound was identified.
+- *Tokenisation.* A single `\w+` regex is applied to both languages. It keeps
+  accented characters, but makes no other language-specific accommodation.
+- *Length normalisation.* BM25 normalises each document against its own corpus
+  mean, so the two languages are not penalised against a shared baseline.
+  However, the corpora differ enormously in scale: under `labels` the English
+  mean is 29.3 tokens against 6.1 in Portuguese. Length normalisation and IDF
+  behave differently at those scales, so the two runs are not the same retrieval
+  problem with the language swapped.
+
+No stopword list is used in either language, so that particular asymmetry is
+ruled out.
+
+Until A and B are separated, "Portuguese retrieves worse" and "this
+repository's Portuguese preprocessing is worse" are indistinguishable from these
+results. The finding as it stands is that a like-for-like BM25 configuration
+performs worse in Portuguese, which is a real and reportable result about this
+pipeline. It is not yet evidence about ESCO's translation quality.
+
+### Tests that would separate them
+
+**Token overlap diagnostic, raw and stemmed.** Per language, measure token
+overlap between each test occupation's description and the text of its gold
+skills. Running it on raw tokens as well as stemmed matters: raw alone conflates
+vocabulary choice with morphology, and the difference between the two is itself
+a measure of what stemming recovers in each language. Cheap, no new
+infrastructure. If Portuguese overlap is not lower than English, candidate A is
+already in difficulty.
+
+**Machine-translation control.** Translate the English occupation descriptions
+and skill texts into Portuguese with a single MT system, then score that corpus
+against official ESCO Portuguese. One MT system renders a given source term the
+same way every time, which is exactly the consistency candidate A claims human
+translators lost. Both conditions pass through identical Portuguese
+tokenisation, stemming and BM25 parameters, so candidate B is controlled by
+construction.
+
+The prediction can fail, which is what makes it worth running. If MT Portuguese
+beats official Portuguese, candidate A is supported and the result says
+something about ESCO's multilingual quality. If it does not, candidate A is
+wrong.
+
+A reverse control is worth running alongside: translate official Portuguese into
+English and score against official English. If MT English also beats official
+English, the effect is about MT normalising vocabulary in general rather than
+about ESCO translation specifically, and neither candidate is supported.
 
 ### Stemming helps, and helps English more
 
@@ -109,11 +161,15 @@ Relative nDCG@10 gain from stemming:
 | labels_desc | +6.9% | +5.7% |
 | description | +10.5% | +12.3% |
 
-Portuguese is the more heavily inflected language, so the expectation was the
-reverse. One reading is that English gains more on `preferred` because its
-labels are terse and verb-initial, where a single stem match carries most of the
-signal, while Portuguese labels carry more function words. Reported as observed,
-not investigated further.
+Portuguese is the more heavily inflected language, so the expectation was that
+it would gain more. On `preferred`, where a single stem match carries most of
+the signal, it gains roughly half as much.
+
+This was initially recorded as an unexplained curiosity. It is better read as
+evidence for candidate B above: a stemmer that under-conflates would both gain
+less from being applied and depress the language's scores throughout. The two
+observations have the same possible cause, and the diagnostics listed above test
+both at once.
 
 ### Micro-recall trails macro-recall
 
