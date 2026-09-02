@@ -12,6 +12,9 @@ not.
 | 04 | IDF-weighted overlap | [`weighted_overlap.md`](weighted_overlap.md) | [`experiments/04_weighted_overlap.py`](../experiments/04_weighted_overlap.py) |
 | 05 | BM25 with stopword removal | [`bm25_stopwords.md`](bm25_stopwords.md) | [`experiments/05_stopwords.py`](../experiments/05_stopwords.py) |
 | 06 | Parameter sweep, dev tuned | [`bm25_sweep.md`](bm25_sweep.md) | [`experiments/06_bm25_sweep.py`](../experiments/06_bm25_sweep.py) |
+| 07 | Score distribution, gold against field | [`score_distribution.md`](score_distribution.md) | [`experiments/07_score_distribution.py`](../experiments/07_score_distribution.py) |
+| 08 | Failure cases, read directly | [`failure_cases.md`](failure_cases.md) | [`experiments/08_failure_cases.py`](../experiments/08_failure_cases.py) |
+| 09 | Overlap by term rarity | [`idf_band_overlap.md`](idf_band_overlap.md) | [`experiments/09_idf_band_overlap.py`](../experiments/09_idf_band_overlap.py) |
 
 Also here: [`dataset_profile.md`](dataset_profile.md) and
 [`split_profile.md`](split_profile.md), describing the release and the frozen
@@ -425,6 +428,126 @@ retrieve worse.
 
 ---
 
+## 07 to 09: where the gap actually comes from
+
+Experiments 01 to 06 established a Portuguese deficit and eliminated several
+explanations for it, all by comparing averages. These three locate it instead.
+They are written together because individually each reads as inconclusive and
+together they are not.
+
+### 07: gold does not separate as far from the field
+
+Every earlier diagnostic measured the relationship between a query and its
+**gold** skills. None measured the relationship to the roughly 13,000 **non-gold**
+skills. Ranking is a contest, so only the numerator had been examined.
+
+The scale-free measure is separation: mean gold score minus mean non-gold score,
+in units of the non-gold standard deviation. Raw BM25 scores are not comparable
+across two corpora; this is.
+
+| language | separation | non-gold outranking best gold, mean | median | top flatness |
+|---|---:|---:|---:|---:|
+| pt | 3.167 | 14.1 | 1 | 0.271 |
+| en | 3.817 | 6.9 | 1 | 0.276 |
+
+English gold sits 20.5% further above the field. Flatness is identical, so the
+Portuguese score distribution is not compressed and the problem is not that
+ordering is decided by noise.
+
+**The medians are identical and the means differ by a factor of two.** On a
+typical query both languages place a gold skill at rank 2. The distributions
+separate only in the tail:
+
+| percentile | en | pt |
+|---|---:|---:|
+| 50th | 1 | 1 |
+| 75th | 4 | 6 |
+| 90th | 15 | 23 |
+| 95th | 27 | 58 |
+| 99th | 80 | 223 |
+| max | 586 | 1162 |
+
+Roughly 90% of Portuguese queries behave much like English ones. The aggregate
+gap is produced by the worst 5 to 10%.
+
+This also explains a pattern visible since experiment 01: MRR was always the
+closest metric between the two languages, 0.524 against 0.611, because MRR
+depends on the first hit, which is where the medians agree. nDCG@10 and recall@10
+showed larger gaps because they depend on the whole top of the list, which is
+where the tail damage lands.
+
+Per-query difficulty correlates only 0.321 between the two languages, so the
+occupations Portuguese struggles with are largely not the ones English struggles
+with. The difficulty is a property of the language-specific text rather than of
+the occupation.
+
+### 08: what goes wrong inside the tail
+
+Aggregate statistics cannot go further, so the worst language-specific failures
+were read directly. Selection is by excess, Portuguese count minus English count
+on the same occupation, so occupations that are hard in both languages drop out.
+
+One pattern accounts for most of them. The query and its gold skills use
+different Portuguese renderings of the same term, where English uses one string
+on both sides:
+
+| occupation | query term | gold skill term | English |
+|---|---|---|---|
+| Leather goods CAD patternmaker | *cabedal* | *couro* | leather on both sides |
+| Punch press operator | *puncionadora* | *prensa biela-manivela* | punch press on both sides |
+| Move coordinator | *mudança* | *movimentação*, *deslocação*, *relocalização* | moving on both sides |
+| Road maintenance worker | *estradas* | *rodoviária*, *trânsito* | road on both sides |
+
+The punch press case is the clearest. In English "tend punch press" is retrieved
+at rank 2 with a score of 67.99. In Portuguese the same gold skill shares no
+tokens with the query at all, the best gold skill falls to rank 478, and the top
+of the ranking fills with *prensa hidráulica*, *prensa de forjar* and
+*peças de máquinas de soldadura por pontos*, the last matching on *ponto morto*.
+
+The move coordinator case adds a second effect. *Mudança* also means "change",
+so the Portuguese ranking is led by *adaptar-se à mudança* and
+*promover a mudança social*. A term that is unambiguous in English is polysemous
+in translation.
+
+These eight cases are selected as the worst failures and are not a sample.
+
+### 09: the divergence is real but too rare to show in aggregate
+
+If terminology divergence were widespread, it should appear as lower Portuguese
+coverage on rare, high-IDF terms, since those carry most of a BM25 score and are
+where a translator has genuine choice. Common words translate consistently
+because there is one obvious rendering.
+
+Coverage of gold vocabulary, banded by how many skills a term appears in:
+
+| band | pt | en | pt gold terms | en gold terms |
+|---|---|---|---:|---:|
+| df 1 | 0.0159 [0.0095, 0.0235] | 0.0140 [0.0085, 0.0204] | 5 | 6 |
+| df 2 to 5 | 0.0312 [0.0244, 0.0391] | 0.0237 [0.0179, 0.0305] | 9 | 10 |
+| df 6 to 50 | 0.0447 [0.0413, 0.0482] | 0.0452 [0.0412, 0.0493] | 52 | 53 |
+| df 51+ | 0.0794 [0.0761, 0.0828] | 0.0719 [0.0690, 0.0749] | 153 | 176 |
+
+**Portuguese is equal or ahead in every band, including the rarest.** The
+hypothesis is not supported. Experiment 03's original conclusion stands.
+
+An earlier version of this experiment banded by IDF quantiles, which does not
+work: terms appearing in exactly one document all share the maximum IDF, and
+that tie covers about a quarter of the vocabulary, so quantiles split it
+arbitrarily. The document-frequency bands above are the corrected version. Both
+give the same answer.
+
+### What the three together establish
+
+Terminology divergence between a query and its gold skills is a real failure
+mode in Portuguese, it does severe damage where it occurs, and it is infrequent
+enough to leave no trace in any aggregate overlap measure. The gap lives in a
+tail, and the tail is invisible to means.
+
+That is why experiments 03 and 09 found nothing while experiment 08 found
+something obvious. They were measuring different populations.
+
+---
+
 ## Where this leaves the central question
 
 The project set out to ask whether dense retrieval could compensate for a 23.8x
@@ -435,30 +558,27 @@ quality on the `labels` variant, and Portuguese cannot access any of it. That
 part of the original question stands.
 
 On `description`, where ESCO gives both languages complete and comparable
-coverage, English still retrieves 18.2% better. Six candidate explanations have
-been tested:
+coverage, English still retrieves 18.2% better. Candidates tested:
 
 | candidate | verdict |
 |---|---|
 | Missing alternative labels | Accounts for the `labels` gap, not the `description` gap |
-| Translation drift in word choice | Not supported. Portuguese shares as much gold vocabulary (03) |
+| Translation drift, measured in aggregate | Not supported. Portuguese shares as much gold vocabulary, in every rarity band (03, 09) |
 | Portuguese stemmer under-conflates | Not supported. It conflates at least as much (03) |
-| Function word density | Real. Accounts for about a quarter of the gap, now corrected (04, 05) |
+| Function word density | Real. About a quarter of the gap, now corrected (04, 05) |
 | Length normalisation | Negligible. Surfaces flat across `b` (06) |
 | Lexical impoverishment from translation | Not supported. Portuguese vocabulary is larger (06) |
+| Compressed score distribution | Not supported. Flatness identical (07) |
+| Terminology divergence in a tail of queries | Supported, and the best account available (07, 08) |
 
-What has not been measured is the competition. Experiments 03 and 04 both
-measured overlap between a query and its **gold** skills. Neither measured
-overlap between a query and the roughly 13,000 **non-gold** skills. Ranking is a
-contest: a gold skill scoring well ranks poorly if many distractors score
-similarly. Only the numerator has been examined.
+The honest summary is that the gap is not a uniform property of Portuguese
+retrieval. It is produced by a minority of queries where the occupation
+description and its gold skills use different words for the same thing, which
+BM25 cannot bridge because it matches strings. The effect is large where it
+occurs and rare enough to be invisible in any average.
 
-That is the remaining lexical hypothesis. Portuguese gold skills may score as
-well as English ones in absolute terms while Portuguese distractors also score
-well, so gold does not separate from the field. Experiment 07 measures it
-directly.
-
-For the retrieval work that follows, the useful framing is narrower than the
-original: a lexical method carries a Portuguese penalty that survives careful
-preprocessing and parameter tuning, and the question is how much of it a dense
-multilingual model removes.
+This makes a specific prediction for the dense retrieval work that follows.
+Embeddings do not require *cabedal* and *couro* to be the same string, so if the
+diagnosis is right, dense retrieval should compress the Portuguese tail rather
+than lift the median. A method that improves the mean while leaving the
+distribution shape unchanged would be doing something else.

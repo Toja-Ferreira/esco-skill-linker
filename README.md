@@ -22,17 +22,21 @@ language (preferred plus alternative labels plus description, stemmed, stopwords
 Recall@10 is capped at 0.543 on this split, so those figures are 25% and 20% of what is
 reachable.
 
-Five experiments so far, four of them spent working out why Portuguese retrieves worse. The
-missing alternative labels account for part of it, worth around a fifth of English's quality on
-label-only retrieval. Absent stopword handling accounted for another quarter of the gap, which
-was a flaw in this repository rather than in the data. Two further explanations were tested and
-found unsupported: Portuguese shares as much gold vocabulary with its skills as English does,
-and its stemmer conflates at least as well.
+Nine experiments so far, most of them spent working out why Portuguese retrieves worse. The
+missing alternative labels account for part of it. Absent stopword handling accounted for
+another quarter of the gap, which was a flaw in this repository rather than in the data.
+Parameter tuning turned out to buy nothing, so the baseline was already fair.
 
-After all corrections, English still leads by 18.2% on description-only retrieval, where both
-languages have complete and comparable coverage. That residual is unexplained, and it is what
-the dense retrieval comparison is now aimed at. Full analysis in
-[`results/README.md`](results/README.md).
+The gap is not a uniform property of Portuguese retrieval. On a typical query both languages
+place a correct skill at rank 2; the medians are identical. The aggregate difference comes from
+the worst 5 to 10% of queries, where the occupation description and its gold skills use
+different Portuguese words for the same thing. A punch press is a *puncionadora* in one record
+and a *prensa biela-manivela* in the other, so they share no tokens at all, while English says
+"punch press" on both sides and retrieves it at rank 2. The effect is severe where it occurs
+and rare enough to leave no trace in aggregate vocabulary overlap, which is why several
+averaged measurements found nothing.
+
+Full analysis in [`results/README.md`](results/README.md).
 
 ## The problem
 
