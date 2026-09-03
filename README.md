@@ -6,10 +6,26 @@ how well different retrieval approaches do it.
 
 Portuguese-focused, evaluated against English as the comparison language.
 
-> **Status:** benchmark frozen, lexical baseline scored. Full findings in
-> [`results/README.md`](results/README.md).
+> **Status:** benchmark frozen, lexical baseline scored, nine experiments recorded. Full
+> findings in [`results/README.md`](results/README.md).
 
 ## Results so far
+
+The Portuguese retrieval gap is real, and it is not what it looks like from the averages.
+
+On a typical query both languages place a correct skill at rank 2. The medians are identical.
+The aggregate difference is produced by the worst 5 to 10% of queries, where the occupation
+description and its gold skills use different Portuguese words for the same thing. A punch
+press is a *puncionadora* in one record and a *prensa biela-manivela* in the other, so they
+share no tokens at all and the best gold skill falls to rank 478. English says "punch press" on
+both sides and retrieves it at rank 2. The effect is severe where it occurs and rare enough to
+leave no trace in aggregate vocabulary overlap, which is why several averaged measurements
+found nothing.
+
+Two corrections along the way. Absent stopword handling cost Portuguese about a quarter of the
+measured gap, which was a flaw in this repository rather than in the data. Parameter tuning
+turned out to buy nothing, so the lexical floor was already fair and the comparisons that
+follow cannot be dismissed as tuned against untuned.
 
 BM25 over all 13,939 skills, 608 held-out occupation descriptions, best configuration in each
 language (preferred plus alternative labels plus description, stemmed, stopwords removed):
@@ -22,19 +38,10 @@ language (preferred plus alternative labels plus description, stemmed, stopwords
 Recall@10 is capped at 0.543 on this split, so those figures are 25% and 20% of what is
 reachable.
 
-Nine experiments so far, most of them spent working out why Portuguese retrieves worse. The
-missing alternative labels account for part of it. Absent stopword handling accounted for
-another quarter of the gap, which was a flaw in this repository rather than in the data.
-Parameter tuning turned out to buy nothing, so the baseline was already fair.
-
-The gap is not a uniform property of Portuguese retrieval. On a typical query both languages
-place a correct skill at rank 2; the medians are identical. The aggregate difference comes from
-the worst 5 to 10% of queries, where the occupation description and its gold skills use
-different Portuguese words for the same thing. A punch press is a *puncionadora* in one record
-and a *prensa biela-manivela* in the other, so they share no tokens at all, while English says
-"punch press" on both sides and retrieves it at rank 2. The effect is severe where it occurs
-and rare enough to leave no trace in aggregate vocabulary overlap, which is why several
-averaged measurements found nothing.
+The tail diagnosis makes a testable prediction for the dense retrieval comparison that these
+numbers exist to support. Embeddings do not need *cabedal* and *couro* to be the same string,
+so if the diagnosis holds, dense retrieval should compress the Portuguese tail rather than lift
+the median.
 
 Full analysis in [`results/README.md`](results/README.md).
 
@@ -49,18 +56,28 @@ knowledge concepts it corresponds to, from a candidate space of 13,939 concepts.
 
 ## The central question
 
-ESCO's **descriptions are complete in both languages**. 100% of skills and occupations carry
-one in Portuguese and in English. ESCO's **alternative labels are not**: English skills carry
-86,454 alt-labels, Portuguese skills carry 3,632. A **23.8x gap**.
+The project started from an asymmetry in the data. ESCO's **descriptions are complete in both
+languages**: 100% of skills and occupations carry one in Portuguese and in English. ESCO's
+**alternative labels are not**: English skills carry 86,454 alt-labels, Portuguese skills carry
+3,632, a **23.8x gap**. The original question was whether dense retrieval could compensate for
+that deficit in lexical surface forms.
 
-Lexical retrieval therefore starts from a heavily unequal footing across the two languages,
-while dense retrieval over descriptions does not. Hence:
+Measurement narrowed it. The label deficit is worth about a fifth of English's lexical quality
+when retrieval runs over labels alone, and Portuguese cannot access any of it. But on
+description-only retrieval, where both languages have complete and comparable coverage,
+English still leads. That residual is not caused by missing text, and it survives stopword
+correction and parameter tuning. It comes from a minority of queries where the two records use
+different words for the same concept, which a string-matching method cannot bridge.
 
-> **Can multilingual dense retrieval compensate for a 24x deficit in lexical surface forms?**
+So the question is now:
 
-If it can, that is a concrete argument for dense methods in lower-resource European languages.
-If it cannot, the finding is that ESCO's label coverage rather than the model is the binding
-constraint for Portuguese, which is actionable for anyone deploying this.
+> **How much of a vocabulary mismatch penalty does multilingual dense retrieval remove?**
+
+If it removes most of it, that is a concrete argument for dense methods wherever a
+classification has been translated rather than authored in the target language, which is the
+situation for 27 of ESCO's 28 languages. If it does not, the finding is that translation
+consistency is the binding constraint, which is actionable for anyone deploying this and is a
+point about ESCO rather than about models.
 
 ## Prior art
 
@@ -277,15 +294,20 @@ the only published numbers in this space.
 ### Slices
 
 - **Language:** Portuguese against English, the primary comparison.
-- **Lexical field:** BM25 scored twice, over labels only and over labels plus description. The
-  Portuguese to English asymmetry lives entirely in the labels, so splitting them isolates it rather than
-  confounding it.
+- **Text field:** labels alone against labels plus description. The alternative-label
+  asymmetry is confined to the labels, so splitting the fields separates the part of the gap
+  caused by missing text from the part that is not.
+- **Gold set size:** quartiles by number of essential skills, since the benchmark's query shape
+  differs from the target application's.
 - **Transversal:** with and without the 452 transversal skills, which flood similarity-based
   rankings.
 - **Concept type:** knowledge against skill/competence.
 - **Sector:** via `iscoGroup` and `naceCode`, both fully populated on occupations.
 - **Language skills:** reported separately, following the Commission's finding that proficiency
   levels are a known failure case.
+
+The language and text-field slices are reported in every experiment so far. Gold set size is
+reported in experiment 02. The remaining slices are part of the design and not yet run.
 
 ### Cross-lingual evaluation
 
@@ -315,10 +337,11 @@ Each scored on the same frozen split, with latency and cost recorded alongside q
   (median 12 gold skills) matches the pooled figures. Query *length* remains untested, since
   every query here is a full occupation description.
 - **Any lexical PT to EN gap is partly a corpus artefact.** With 23.8x fewer alternative labels
-  on the skills being retrieved, a BM25 gap measures ESCO's label coverage as well as the
-  method. [Experiment 01](results/README.md) separates the two: alternative labels account for
-  roughly a fifth of English's lexical advantage, and the remainder persists on fields where
-  both languages have equal coverage.
+  on the skills being retrieved, a BM25 gap over labels measures ESCO's label coverage as well
+  as the method. [Experiment 01](results/README.md) separates the two: adding alternative
+  labels is worth about a fifth of English's quality and nothing measurable in Portuguese,
+  while the gap on description-only retrieval, where coverage is equal, has a different cause
+  entirely.
 - **Recall is bounded well below 1.** With around 22 gold skills per query, recall@10 cannot
   exceed 0.543 on this split. Absolute recall figures should be read against the ceilings
   reported alongside them.
