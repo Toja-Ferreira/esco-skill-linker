@@ -6,15 +6,15 @@ how well different retrieval approaches do it.
 
 Portuguese-focused, evaluated against English as the comparison language.
 
-> **Status:** benchmark frozen, lexical baseline scored, nine experiments recorded. Full
-> findings in [`results/README.md`](results/README.md).
+> **Status:** benchmark frozen, lexical and dense retrieval scored, eleven experiments
+> recorded. Full findings in [`results/README.md`](results/README.md).
 
 ## Results so far
 
-The Portuguese retrieval gap is real, and it is not what it looks like from the averages.
+Portuguese retrieves worse than English, and the reason is not what the averages suggest.
 
-On a typical query both languages place a correct skill at rank 2. The medians are identical.
-The aggregate difference is produced by the worst 5 to 10% of queries, where the occupation
+Under lexical retrieval the two languages place a correct skill at the same median rank. The
+22% aggregate gap is produced by the worst 5 to 10% of queries, where the occupation
 description and its gold skills use different Portuguese words for the same thing. A punch
 press is a *puncionadora* in one record and a *prensa biela-manivela* in the other, so they
 share no tokens at all and the best gold skill falls to rank 478. English says "punch press" on
@@ -22,30 +22,28 @@ both sides and retrieves it at rank 2. The effect is severe where it occurs and 
 leave no trace in aggregate vocabulary overlap, which is why several averaged measurements
 found nothing.
 
-Two corrections along the way. Absent stopword handling cost Portuguese about a quarter of the
-measured gap, which was a flaw in this repository rather than in the data. Parameter tuning
-turned out to buy nothing, so the lexical floor was already fair and the comparisons that
-follow cannot be dismissed as tuned against untuned.
+That diagnosis made a prediction, recorded before the dense retrieval runs: embeddings do not
+need *cabedal* and *couro* to be the same string, so they should compress the Portuguese tail
+rather than lift the median. They did. The Portuguese failure rate falls from 25.2% to 15.3%,
+the top of the distribution barely moves, and per-query gains concentrate in exactly the
+queries where lexical matching failed.
 
-BM25 over all 13,939 skills, 608 held-out occupation descriptions, best configuration in each
-language (preferred plus alternative labels plus description, stemmed, stopwords removed):
+608 held-out occupation descriptions against all 13,939 skills:
 
-| | nDCG@10 | 95% CI | recall@10 | MRR |
-|---|---:|---|---:|---:|
-| English | 0.325 | [0.308, 0.342] | 0.134 | 0.611 |
-| Portuguese | 0.266 | [0.250, 0.281] | 0.107 | 0.524 |
+| method | English | Portuguese | gap |
+|---|---:|---:|---:|
+| BM25, stemmed, stopwords removed | 0.325 | 0.266 | +22.2% |
+| Bi-encoder, EmbeddingGemma-300M | **0.358** | **0.328** | **+8.9%** |
 
-English leads by 22.3%, with disjoint intervals. On description-only retrieval, where the
-alternative-label advantage disappears and both languages have identical coverage, the gap is
-18.2%.
+nDCG@10. Dense retrieval removes roughly three quarters of the language gap, and does so
+asymmetrically: Portuguese gains 23.5% where English gains 10.0%. A study reporting only a
+pooled figure across languages would have called that a modest 10% improvement and missed what
+it was doing.
 
-Recall@10 is capped at 0.543 on this split, so those figures are 25% and 20% of what is
-reachable.
-
-The tail diagnosis makes a testable prediction for the dense retrieval comparison that these
-numbers exist to support. Embeddings do not need *cabedal* and *couro* to be the same string,
-so if the diagnosis holds, dense retrieval should compress the Portuguese tail rather than lift
-the median.
+Two results worth noting alongside. A 308M model beat a 4B one in both languages, and
+`multilingual-e5-base` lost to BM25 in both, so the checkpoint matters more than the
+architecture. And absent stopword handling turned out to cost Portuguese about a quarter of the
+lexical gap, which was a flaw in this repository rather than in the data.
 
 Full analysis in [`results/README.md`](results/README.md).
 
@@ -73,15 +71,15 @@ English still leads. That residual is not caused by missing text, and it survive
 correction and parameter tuning. It comes from a minority of queries where the two records use
 different words for the same concept, which a string-matching method cannot bridge.
 
-So the question is now:
+So the question became:
 
 > **How much of a vocabulary mismatch penalty does multilingual dense retrieval remove?**
 
-If it removes most of it, that is a concrete argument for dense methods wherever a
-classification has been translated rather than authored in the target language, which is the
-situation for 27 of ESCO's 28 languages. If it does not, the finding is that translation
-consistency is the binding constraint, which is actionable for anyone deploying this and is a
-point about ESCO rather than about models.
+Answered in [experiments 10 and 11](results/README.md): roughly three quarters of it, and by
+compressing the tail of failing queries rather than by improving retrieval generally. That is a
+concrete argument for dense methods wherever a classification has been translated rather than
+authored in the target language, which is the situation for 27 of ESCO's 28 languages. An 8.9%
+gap survives and is currently unexplained.
 
 A second question follows from the deployment setting. Because course documentation exists in
 both languages, and because the two languages fail on largely different queries, the practical

@@ -15,24 +15,38 @@ not.
 | 07 | Score distribution, gold against field | [`score_distribution.md`](score_distribution.md) | [`experiments/07_score_distribution.py`](../experiments/07_score_distribution.py) |
 | 08 | Failure cases, read directly | [`failure_cases.md`](failure_cases.md) | [`experiments/08_failure_cases.py`](../experiments/08_failure_cases.py) |
 | 09 | Overlap by term rarity | [`idf_band_overlap.md`](idf_band_overlap.md) | [`experiments/09_idf_band_overlap.py`](../experiments/09_idf_band_overlap.py) |
+| 10 | Bi-encoder retrieval | [`bi_encoder.md`](bi_encoder.md) | [`experiments/10_bi_encoder.py`](../experiments/10_bi_encoder.py) |
+| 11 | Dense against lexical, per query | [`dense_vs_lexical.md`](dense_vs_lexical.md) | [`experiments/11_dense_vs_lexical.py`](../experiments/11_dense_vs_lexical.py) |
 
 Also here: [`dataset_profile.md`](dataset_profile.md) and
 [`split_profile.md`](split_profile.md), describing the release and the frozen
 evaluation split.
 
-## Current best lexical baseline
+## Current best
 
-BM25, labels plus description, stemmed, stopwords removed. 608 held-out
-occupation descriptions against all 13,939 skills.
+Bi-encoder, `google/embeddinggemma-300m`, preferred label plus alternative
+labels plus description. 608 held-out occupation descriptions against all
+13,939 skills.
 
 | | nDCG@10 | 95% CI | P@10 | R@10 | MRR |
 |---|---:|---|---:|---:|---:|
-| English | 0.325 | [0.308, 0.342] | 0.250 | 0.134 | 0.611 |
-| Portuguese | 0.266 | [0.250, 0.281] | 0.203 | 0.107 | 0.524 |
+| English | 0.3576 | [0.3419, 0.3744] | 0.270 | 0.145 | 0.678 |
+| Portuguese | 0.3284 | [0.3122, 0.3448] | 0.248 | 0.130 | 0.640 |
 
-English leads by 22.3%. Experiment 01 reported 0.309 and 0.248 with a 25.0% gap;
-those figures used no stopword list, which experiment 05 showed to be a
-suboptimal configuration for both languages and a worse one for Portuguese.
+Best lexical baseline, BM25 with stemming and stopword removal over the same
+fields:
+
+| | nDCG@10 | 95% CI | P@10 | R@10 | MRR |
+|---|---:|---|---:|---:|---:|
+| English | 0.3252 | [0.3084, 0.3416] | 0.250 | 0.134 | 0.611 |
+| Portuguese | 0.2658 | [0.2500, 0.2806] | 0.203 | 0.107 | 0.524 |
+
+The language gap falls from 22.2% to 8.9%. Portuguese gains 23.5% from dense
+retrieval where English gains 10.0%, so the benefit is not uniform across
+languages.
+
+Recall@10 is capped at 0.543 on this split, so the leading figures are 27% and
+24% of what is reachable.
 
 ---
 
@@ -40,7 +54,7 @@ suboptimal configuration for both languages and a worse one for Portuguese.
 
 **Recall@k is capped well below 1.** Occupations carry around 22 essential
 skills on average and only 10 fit in a top-10, so the highest recall@10
-achievable on this split is **0.543**. A recall@10 of 0.134 is 25% of what is
+achievable on this split is **0.543**. A recall@10 of 0.145 is 27% of what is
 reachable.
 
 | k | 1 | 3 | 5 | 10 | 20 | 50 |
@@ -48,10 +62,10 @@ reachable.
 | max recall@k | 0.056 | 0.167 | 0.278 | 0.543 | 0.856 | 0.993 |
 
 **Precision and MRR answer different questions.** The best English run has P@10
-of 0.250, so most of what it shows is wrong, alongside MRR of 0.611, meaning the
-first genuinely essential skill usually appears around rank 2 out of 13,939
-candidates. Lexical matching finds one correct skill easily and the full set
-poorly.
+of 0.270, so most of what it shows is wrong, alongside MRR of 0.678, meaning the
+first genuinely essential skill usually appears at rank 1 or 2 out of 13,939
+candidates. Retrieval finds one correct skill easily and the full set poorly,
+and which of those matters depends on the interface.
 
 ---
 
@@ -548,37 +562,205 @@ something obvious. They were measuring different populations.
 
 ---
 
+## 10: Bi-encoder retrieval
+
+The first non-lexical method, and the number comparable to the Commission's
+pilot, which evaluated a multilingual sentence encoder in the native language.
+Three checkpoints, document variant and checkpoint selected on dev, then scored
+once per language on test.
+
+Checkpoints chosen to span a range rather than to top a leaderboard.
+`multilingual-e5-base` is the reference point, the closest current equivalent to
+what the Commission tested. `embeddinggemma-300m` is the only sub-500M model
+with a measured Portuguese result rather than an inferred one. `Qwen3-Embedding-4B`
+leads its size group on MTEB Multilingual and MTEB English and places 6th on
+MTEB-BR.
+
+No leaderboard measures European Portuguese, and none measures retrieval over a
+taxonomy of short concepts, so the boards were used to narrow the field and the
+dev split decided.
+
+### Results
+
+| model | lang | documents | nDCG@10 | 95% CI | MRR | vs BM25 |
+|---|---|---|---:|---|---:|---:|
+| embeddinggemma | en | labels_desc | 0.3576 | [0.3419, 0.3744] | 0.678 | +10.0% |
+| qwen3-4b | en | preferred | 0.3203 | [0.3038, 0.3361] | 0.604 | −1.4% |
+| e5-base | en | labels_desc | 0.3145 | [0.2987, 0.3307] | 0.634 | −3.2% |
+| embeddinggemma | pt | labels_desc | 0.3284 | [0.3122, 0.3448] | 0.640 | +23.5% |
+| qwen3-4b | pt | preferred | 0.3026 | [0.2862, 0.3185] | 0.567 | +13.7% |
+| e5-base | pt | labels_desc | 0.2630 | [0.2466, 0.2784] | 0.551 | −1.1% |
+
+### Dense retrieval closes most of the language gap
+
+| method | pt | en | en advantage |
+|---|---:|---:|---:|
+| BM25 | 0.2658 | 0.3252 | +22.2% |
+| e5-base | 0.2630 | 0.3145 | +19.6% |
+| embeddinggemma | 0.3284 | 0.3576 | +8.9% |
+| qwen3-4b | 0.3026 | 0.3203 | +5.9% |
+
+This answers the project's central question. Roughly three quarters of the
+lexical language gap is removed by a dense multilingual model, and it is removed
+asymmetrically: Portuguese gains 23.5% over BM25 while English gains 10.0%.
+
+A study reporting only a pooled figure across languages would have concluded
+that dense retrieval offers a modest 10% improvement, and would have missed that
+it does substantially different work in each language.
+
+### A 308M model beats a 4B one
+
+EmbeddingGemma leads Qwen3-Embedding-4B by 12.5% in English and 8.5% in
+Portuguese, at a thirteenth of the parameters, a third of the index size and
+768 dimensions against 2560.
+
+Qwen3 ranks higher than EmbeddingGemma on every leaderboard consulted. That is
+the concrete cost of no European Portuguese retrieval benchmark existing, and it
+is the reason the dev split rather than a published ranking made this choice.
+
+`multilingual-e5-base` loses to BM25 in both languages, so "dense beats lexical"
+is not true of this task in general. The checkpoint matters more than the
+architecture.
+
+### The best document representation is model-specific
+
+| model | pt best | en best |
+|---|---|---|
+| e5-base | labels_desc | labels_desc |
+| embeddinggemma | labels_desc | labels_desc |
+| qwen3-4b | preferred | preferred |
+
+Qwen3 is *worse* with more context: 0.2973 on the preferred label alone against
+0.2600 with labels and description. The other two prefer the fuller text, as
+BM25 does. Anyone deploying this cannot assume a document representation
+transfers between checkpoints.
+
+Qwen3 also has a distinctive metric profile, with MRR of 0.567 in Portuguese
+against EmbeddingGemma's 0.640 while nDCG@10 differs by only 8.5%. It is worse
+at placing a correct skill first while being comparable across the whole top 10,
+which matters if the interface shows one suggestion rather than ten.
+
+### Cost
+
+| model | dims | index MB per language | ms/query |
+|---|---:|---:|---:|
+| e5-base | 768 | 42.8 | 0.08 |
+| embeddinggemma | 768 | 42.8 | 0.07 |
+| qwen3-4b | 2560 | 142.7 | 0.09 |
+
+Per-query latency is comparable to BM25 because the corpus is embedded once and
+only the query is encoded at request time. The costs dense retrieval adds are a
+one-off indexing pass and a resident index, not per-request latency. Timings
+were taken on a shared GPU and should be treated as indicative.
+
+---
+
+## 11: Where the dense gain comes from
+
+Experiment 10 recorded a prediction before running. Because the Portuguese
+lexical gap is produced by a tail of queries where the two records use different
+words for the same concept, dense retrieval should compress that tail rather
+than lift the median. This compares per-query distributions over the same 608
+occupations. No retrieval is re-run.
+
+### The tail compresses
+
+Per-query nDCG@10 distribution, and the share of queries scoring below 0.10:
+
+| method | lang | p10 | p50 | p90 | failed |
+|---|---|---:|---:|---:|---:|
+| bm25 | pt | 0.0000 | 0.2413 | 0.5549 | 25.2% |
+| embeddinggemma | pt | 0.0694 | 0.3223 | 0.5947 | 15.3% |
+| bm25 | en | 0.0367 | 0.3188 | 0.6124 | 18.8% |
+| embeddinggemma | en | 0.0831 | 0.3536 | 0.6180 | 12.3% |
+
+The Portuguese failure rate falls by 39% relative, the English by 35%. The
+Portuguese 10th percentile moves from exactly zero to 0.069, so more than a
+tenth of Portuguese queries previously retrieved nothing useful at all and now
+do.
+
+Note the p90 column: 0.5549 to 0.5947 in Portuguese, and 0.6124 to 0.6180 in
+English. The top of the distribution barely moves. The gain is in the bottom.
+
+### Gains concentrate exactly where BM25 failed
+
+Queries split into quartiles by their BM25 score, then compared against
+themselves under EmbeddingGemma:
+
+| lang | BM25 quartile | BM25 | dense | change | improved |
+|---|---|---:|---:|---:|---:|
+| pt | Q1 worst | 0.0320 | 0.1830 | +0.1510 | 80% |
+| pt | Q2 | 0.1743 | 0.2634 | +0.0891 | 68% |
+| pt | Q3 | 0.3226 | 0.3668 | +0.0442 | 59% |
+| pt | Q4 best | 0.5344 | 0.5005 | −0.0339 | 44% |
+| en | Q1 worst | 0.0618 | 0.1831 | +0.1213 | 75% |
+| en | Q2 | 0.2434 | 0.2954 | +0.0520 | 62% |
+| en | Q3 | 0.3946 | 0.4036 | +0.0090 | 48% |
+| en | Q4 best | 0.6008 | 0.5481 | −0.0528 | 35% |
+
+Monotonic in both languages, and the same shape holds for Qwen3 and for
+e5-base, which loses overall while still gaining +0.106 in the Portuguese
+bottom quartile.
+
+Dense retrieval is not uniformly better. It trades: rescuing queries that exact
+string matching cannot handle, and damaging queries where string overlap was
+already doing the job well.
+
+### A caveat on the quartile table
+
+Quartiles are defined on BM25 scores, so the comparison is subject to regression
+to the mean. Any second method, including a worse one, would tend to score
+higher than BM25 in BM25's worst quartile and lower in its best, because those
+groups were selected partly on BM25's own noise. The monotonic pattern alone is
+therefore not evidence.
+
+What regression does not explain is the asymmetry between languages. The
+Portuguese and English Q1 groups start at similar levels, 0.032 and 0.062, yet
+Portuguese gains more from every checkpoint. And the failure rate is a threshold
+count over the whole distribution rather than a quartile comparison, so
+regression does not apply to it, and it falls further in Portuguese for all
+three models.
+
+### What this sets up
+
+The two method families fail on different queries in a structured, measurable
+way. EmbeddingGemma wins 80% of BM25's worst Portuguese quartile and loses 56%
+of its best. That is the precondition for score fusion working, and it is a
+stronger reason to try a hybrid than the usual observation that hybrids tend to
+help.
+
+---
+
 ## Where this leaves the central question
 
 The project set out to ask whether dense retrieval could compensate for a 23.8x
-deficit in Portuguese alternative labels. That framing survives only partly.
+deficit in Portuguese alternative labels. Measurement changed the question twice
+and then answered it.
 
-What the label deficit costs is measured: about a fifth of English's lexical
-quality on the `labels` variant, and Portuguese cannot access any of it. That
-part of the original question stands.
+**The label deficit was not the main effect.** It is worth about a fifth of
+English's lexical quality when retrieval runs over labels alone, but the gap
+persists on description-only retrieval where both languages have complete
+coverage.
 
-On `description`, where ESCO gives both languages complete and comparable
-coverage, English still retrieves 18.2% better. Candidates tested:
+**The residual is a tail phenomenon, not a uniform deficit.** Candidates tested:
 
 | candidate | verdict |
 |---|---|
 | Missing alternative labels | Accounts for the `labels` gap, not the `description` gap |
-| Translation drift, measured in aggregate | Not supported. Portuguese shares as much gold vocabulary, in every rarity band (03, 09) |
+| Translation drift, measured in aggregate | Not supported, in any rarity band (03, 09) |
 | Portuguese stemmer under-conflates | Not supported. It conflates at least as much (03) |
-| Function word density | Real. About a quarter of the gap, now corrected (04, 05) |
+| Function word density | Real. About a quarter of the gap, corrected (04, 05) |
 | Length normalisation | Negligible. Surfaces flat across `b` (06) |
 | Lexical impoverishment from translation | Not supported. Portuguese vocabulary is larger (06) |
 | Compressed score distribution | Not supported. Flatness identical (07) |
-| Terminology divergence in a tail of queries | Supported, and the best account available (07, 08) |
+| Terminology divergence in a tail of queries | Supported (07, 08), and confirmed by 10 and 11 |
 
-The honest summary is that the gap is not a uniform property of Portuguese
-retrieval. It is produced by a minority of queries where the occupation
-description and its gold skills use different words for the same thing, which
-BM25 cannot bridge because it matches strings. The effect is large where it
-occurs and rare enough to be invisible in any average.
+**Dense retrieval removes most of it, in the way the diagnosis predicted.** The
+gap falls from 22.2% to 8.9%, the Portuguese failure rate from 25.2% to 15.3%,
+and the gains concentrate in exactly the queries where lexical matching failed.
+A method that had improved the mean while leaving the distribution shape
+unchanged would have been doing something else.
 
-This makes a specific prediction for the dense retrieval work that follows.
-Embeddings do not require *cabedal* and *couro* to be the same string, so if the
-diagnosis is right, dense retrieval should compress the Portuguese tail rather
-than lift the median. A method that improves the mean while leaving the
-distribution shape unchanged would be doing something else.
+The residual 8.9% is unexplained. It is smaller than the lexical gap by a factor
+of two and a half, and whatever causes it survives a multilingual model that
+does not require string identity.
