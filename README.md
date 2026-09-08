@@ -35,6 +35,10 @@ language (preferred plus alternative labels plus description, stemmed, stopwords
 | English | 0.325 | [0.308, 0.342] | 0.134 | 0.611 |
 | Portuguese | 0.266 | [0.250, 0.281] | 0.107 | 0.524 |
 
+English leads by 22.3%, with disjoint intervals. On description-only retrieval, where the
+alternative-label advantage disappears and both languages have identical coverage, the gap is
+18.2%.
+
 Recall@10 is capped at 0.543 on this split, so those figures are 25% and 20% of what is
 reachable.
 
@@ -78,6 +82,10 @@ classification has been translated rather than authored in the target language, 
 situation for 27 of ESCO's 28 languages. If it does not, the finding is that translation
 consistency is the binding constraint, which is actionable for anyone deploying this and is a
 point about ESCO rather than about models.
+
+A second question follows from the deployment setting. Because course documentation exists in
+both languages, and because the two languages fail on largely different queries, the practical
+question is not which language is better but whether using both beats using either.
 
 ## Prior art
 
@@ -151,6 +159,11 @@ and matches how the Commission's pilot framed it.
 
 **Languages:** Portuguese and English. The loader takes a language list as a parameter, so
 adding a third is configuration rather than a rewrite.
+
+Course documentation at the target institution is authored in both languages, including the
+learning outcomes themselves. A deployed system therefore has both texts for every course unit,
+which is why the language comparison is treated as a design choice rather than as a constraint,
+and why bilingual fusion is one of the approaches compared.
 
 **Out:** the qualifications pillar. Three reasons:
 
@@ -321,9 +334,33 @@ Each scored on the same frozen split, with latency and cost recorded alongside q
 
 1. **BM25** over labels and descriptions, the floor any semantic method must clear
 2. **Bi-encoder**, several multilingual checkpoints
-3. **Cross-encoder reranking** over the bi-encoder shortlist
-4. **Hybrid** lexical + dense score fusion
-5. **LLM reranking**, judged against the cheaper alternatives on quality, latency and cost
+3. **Late interaction**, ColBERT-style, one vector per token rather than per concept
+4. **Cross-encoder reranking** over a shortlist from the best first-stage method
+5. **Hybrid** lexical and dense score fusion
+6. **Bilingual fusion**, combining the Portuguese and English ranked lists for the same course unit
+7. **LLM reranking**, judged against the cheaper alternatives on quality, latency and cost
+
+Late interaction is placed early because it is diagnostic rather than merely another method. A
+bi-encoder compresses a whole concept into one vector, so a rare technical term contributes a
+small share of it and can be washed out. Keeping a vector per token lets a single term match on
+its own, which is the failure mode the results identify. If terminology divergence is the
+mechanism, this is the architecture most likely to address it.
+
+### Why bilingual fusion
+
+Course documentation at the target institution is written in both Portuguese and English, so a
+deployed system has both texts for the same course unit. That makes the language comparison a
+design question rather than a constraint: which language should the system retrieve in, given
+both exist?
+
+Two properties make fusion promising here. ESCO assigns a stable URI per concept, so retrieval
+language and display language are independent: a system can retrieve using the English text and
+present the Portuguese label for the same concept. And per-query difficulty correlates only
+0.321 between the two languages, so each fails on largely different queries. Uncorrelated
+failures are the precondition for fusion beating either input alone.
+
+Because per-query results are recorded per language against the same occupation URIs, fusion is
+an analysis over existing runs rather than a separate retrieval pipeline.
 
 ## Limitations
 
