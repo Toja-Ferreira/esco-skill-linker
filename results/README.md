@@ -17,6 +17,7 @@ not.
 | 09 | Overlap by term rarity | [`idf_band_overlap.md`](idf_band_overlap.md) | [`experiments/09_idf_band_overlap.py`](../experiments/09_idf_band_overlap.py) |
 | 10 | Bi-encoder retrieval | [`bi_encoder.md`](bi_encoder.md) | [`experiments/10_bi_encoder.py`](../experiments/10_bi_encoder.py) |
 | 11 | Dense against lexical, per query | [`dense_vs_lexical.md`](dense_vs_lexical.md) | [`experiments/11_dense_vs_lexical.py`](../experiments/11_dense_vs_lexical.py) |
+| 12 | Shape of the residual language gap | [`residual_gap.md`](residual_gap.md) | [`experiments/12_residual_gap.py`](../experiments/12_residual_gap.py) |
 
 Also here: [`dataset_profile.md`](dataset_profile.md) and
 [`split_profile.md`](split_profile.md), describing the release and the frozen
@@ -41,7 +42,7 @@ fields:
 | English | 0.3252 | [0.3084, 0.3416] | 0.250 | 0.134 | 0.611 |
 | Portuguese | 0.2658 | [0.2500, 0.2806] | 0.203 | 0.107 | 0.524 |
 
-The language gap falls from 22.2% to 8.9%. Portuguese gains 23.5% from dense
+The language gap falls from 22.3% to 8.9%. Portuguese gains 23.5% from dense
 retrieval where English gains 10.0%, so the benefit is not uniform across
 languages.
 
@@ -99,13 +100,33 @@ more text and still scores lower:
 |---|---:|---:|---:|---:|---:|
 | preferred, raw | 4.9 | 3.6 | 0.163 | 0.189 | +15.8% |
 | description, raw | 25.2 | 22.2 | 0.188 | 0.230 | +22.4% |
-| description, stemmed | 25.2 | 22.2 | 0.208 | 0.258 | +24.4% |
+| description, stemmed | 25.2 | 22.2 | 0.208 | 0.258 | +24.3% |
 
 Portuguese preferred labels are 36% longer than English ones and score 16%
 lower. Descriptions are 14% longer and score 24% lower. Every interval is
 disjoint. A shortage of text does not explain this, which rules out the original
 framing of the project's central question. Experiments 03 to 05 pursue the
 cause.
+
+### Stemming helps, and helps English more on short fields
+
+Relative nDCG@10 gain from stemming, before stopword removal:
+
+| variant | pt | en |
+|---|---:|---:|
+| preferred | +13.5% | +23.3% |
+| labels | +13.5% | +11.6% |
+| labels_desc | +6.9% | +5.7% |
+| description | +10.6% | +12.3% |
+
+Portuguese is the more heavily inflected language, so the expectation was that it
+would gain more. On `preferred`, where a single stem match carries most of the
+signal, it gains roughly half as much.
+
+That observation was initially recorded as an unexplained curiosity. It is
+better read as a candidate explanation for the language gap itself: a stemmer
+that under-conflates would both gain less from being applied and depress the
+language's scores throughout. Experiment 03 tests it directly.
 
 ### Preprocessing audit
 
@@ -490,10 +511,11 @@ depends on the first hit, which is where the medians agree. nDCG@10 and recall@1
 showed larger gaps because they depend on the whole top of the list, which is
 where the tail damage lands.
 
-Per-query difficulty correlates only 0.321 between the two languages, so the
-occupations Portuguese struggles with are largely not the ones English struggles
-with. The difficulty is a property of the language-specific text rather than of
-the occupation.
+Per-query counts of non-gold skills outranking the best gold skill correlate
+0.321 between the two languages. That statistic is a heavily skewed count
+ranging to 1,162, so it overstates the independence: correlating nDCG@10 on the
+same queries gives 0.737. The languages fail together more often than they fail
+separately, and experiment 12 quantifies what is left over.
 
 ### 08: what goes wrong inside the tail
 
@@ -585,24 +607,31 @@ dev split decided.
 | model | lang | documents | nDCG@10 | 95% CI | MRR | vs BM25 |
 |---|---|---|---:|---|---:|---:|
 | embeddinggemma | en | labels_desc | 0.3576 | [0.3419, 0.3744] | 0.678 | +10.0% |
-| qwen3-4b | en | preferred | 0.3203 | [0.3038, 0.3361] | 0.604 | −1.4% |
-| e5-base | en | labels_desc | 0.3145 | [0.2987, 0.3307] | 0.634 | −3.2% |
+| qwen3-4b | en | preferred | 0.3203 | [0.3038, 0.3361] | 0.604 | −1.5% |
+| e5-base | en | labels_desc | 0.3145 | [0.2987, 0.3307] | 0.634 | −3.3% |
 | embeddinggemma | pt | labels_desc | 0.3284 | [0.3122, 0.3448] | 0.640 | +23.5% |
-| qwen3-4b | pt | preferred | 0.3026 | [0.2862, 0.3185] | 0.567 | +13.7% |
+| qwen3-4b | pt | preferred | 0.3026 | [0.2862, 0.3185] | 0.567 | +13.8% |
 | e5-base | pt | labels_desc | 0.2630 | [0.2466, 0.2784] | 0.551 | −1.1% |
 
 ### Dense retrieval closes most of the language gap
 
 | method | pt | en | en advantage |
 |---|---:|---:|---:|
-| BM25 | 0.2658 | 0.3252 | +22.2% |
+| BM25 | 0.2658 | 0.3252 | +22.3% |
 | e5-base | 0.2630 | 0.3145 | +19.6% |
 | embeddinggemma | 0.3284 | 0.3576 | +8.9% |
 | qwen3-4b | 0.3026 | 0.3203 | +5.9% |
 
-This answers the project's central question. Roughly three quarters of the
-lexical language gap is removed by a dense multilingual model, and it is removed
-asymmetrically: Portuguese gains 23.5% over BM25 while English gains 10.0%.
+This answers the project's central question. EmbeddingGemma removes 60% of the
+lexical language gap, from 22.3% to 8.9%, and removes it asymmetrically:
+Portuguese gains 23.5% over BM25 while English gains 10.0%.
+
+Qwen3 shows the smallest gap at 5.9%, a 74% reduction, but that is not the
+better result. It is worse than EmbeddingGemma in both languages, 0.3203 against
+0.3576 in English and 0.3026 against 0.3284 in Portuguese, so its narrower gap
+comes from degrading the stronger language rather than from lifting the weaker
+one. A small language gap is only meaningful read alongside the absolute
+scores.
 
 A study reporting only a pooled figure across languages would have concluded
 that dense retrieval offers a modest 10% improvement, and would have missed that
@@ -610,7 +639,7 @@ it does substantially different work in each language.
 
 ### A 308M model beats a 4B one
 
-EmbeddingGemma leads Qwen3-Embedding-4B by 12.5% in English and 8.5% in
+EmbeddingGemma leads Qwen3-Embedding-4B by 11.6% in English and 8.5% in
 Portuguese, at a thirteenth of the parameters, a third of the index size and
 768 dimensions against 2560.
 
@@ -674,7 +703,7 @@ Per-query nDCG@10 distribution, and the share of queries scoring below 0.10:
 | bm25 | en | 0.0367 | 0.3188 | 0.6124 | 18.8% |
 | embeddinggemma | en | 0.0831 | 0.3536 | 0.6180 | 12.3% |
 
-The Portuguese failure rate falls by 39% relative, the English by 35%. The
+The Portuguese failure rate falls by 39% relative, the English by 34%. The
 Portuguese 10th percentile moves from exactly zero to 0.069, so more than a
 tenth of Portuguese queries previously retrieved nothing useful at all and now
 do.
@@ -731,6 +760,78 @@ help.
 
 ---
 
+## 12: What is left of the language gap
+
+Dense retrieval leaves an 8.9% residual with disjoint intervals. This asks
+whether it has the same shape as the lexical gap it replaced. Paired on
+occupation, which is exact because ESCO assigns one URI per concept and the gold
+set is identical in both languages. No retrieval is re-run.
+
+### The residual is uniform, not a tail
+
+Absolute gap between English and Portuguese at each percentile of the per-query
+score distribution:
+
+| model | p10 | p25 | p50 | p75 | p90 | relative gap |
+|---|---:|---:|---:|---:|---:|---:|
+| bm25 | +0.0367 | +0.0691 | +0.0775 | +0.0707 | +0.0575 | +22.3% |
+| e5-base | +0.0650 | +0.0568 | +0.0561 | +0.0657 | +0.0600 | +19.6% |
+| embeddinggemma | +0.0137 | +0.0374 | +0.0314 | +0.0243 | +0.0233 | +8.9% |
+| qwen3-4b | +0.0377 | +0.0373 | +0.0334 | +0.0171 | −0.0054 | +5.9% |
+
+Under EmbeddingGemma the gap is roughly flat across the distribution and small
+everywhere, between 0.014 and 0.037. The lexical gap it replaced was two to
+three times larger at every percentile, and its p10 figure understates the
+damage because Portuguese p10 under BM25 was pinned at exactly 0.0000.
+
+So the terminology explanation developed in experiments 07 to 09 does not carry
+over. What remains affects Portuguese queries broadly and mildly rather than
+destroying a minority of them. That is the signature of a model representing one
+language slightly better than the other, not of a data problem concentrated in
+specific records.
+
+Qwen3 is worth noting: its gap reverses at p90, where Portuguese scores higher
+than English. Consistent with its narrower overall gap coming from degraded
+English rather than improved Portuguese.
+
+### A correction to the correlation figure
+
+Experiment 07 reported that per-query difficulty correlates 0.321 between the
+languages, and earlier write-ups used that as evidence the two fail on largely
+different queries.
+
+That statistic was the correlation of `n_outranking`, a count ranging from 0 to
+1,162 and heavily skewed, which understates agreement. Correlating nDCG@10 on
+the same queries gives **0.737** under BM25 and **0.825** under EmbeddingGemma.
+The languages fail together far more often than they fail separately.
+
+### What bilingual fusion could actually recover
+
+| model | pt fails | en fails | both | pt only | en only |
+|---|---:|---:|---:|---:|---:|
+| bm25 | 25.2% | 18.8% | 13.5% | 11.7% | 5.3% |
+| e5-base | 25.2% | 16.9% | 11.7% | 13.5% | 5.3% |
+| embeddinggemma | 15.3% | 12.3% | 9.0% | 6.2% | 3.3% |
+| qwen3-4b | 21.5% | 16.0% | 10.2% | 11.3% | 5.8% |
+
+A query counts as failed below 0.10 nDCG@10.
+
+Under the best model, 6.2% of occupations fail in Portuguese while succeeding in
+English, and 3.3% the reverse. An oracle choosing the better language per query
+would fix about 6% of Portuguese cases; a real fusion method recovers less.
+
+The headroom shrinks as the model improves. EmbeddingGemma has both the smallest
+share of language-specific failures and the highest cross-language correlation,
+so a better model has already absorbed some of what fusion would otherwise
+recover.
+
+Fusion remains worth measuring, because the headroom is real and the deployment
+setting supplies both texts at no extra cost. But the case for it is smaller
+than the earlier correlation figure implied, and it is now measured rather than
+inferred.
+
+---
+
 ## Where this leaves the central question
 
 The project set out to ask whether dense retrieval could compensate for a 23.8x
@@ -755,12 +856,15 @@ coverage.
 | Compressed score distribution | Not supported. Flatness identical (07) |
 | Terminology divergence in a tail of queries | Supported (07, 08), and confirmed by 10 and 11 |
 
-**Dense retrieval removes most of it, in the way the diagnosis predicted.** The
-gap falls from 22.2% to 8.9%, the Portuguese failure rate from 25.2% to 15.3%,
+**Dense retrieval removes 60% of it, in the way the diagnosis predicted.** The
+gap falls from 22.3% to 8.9%, the Portuguese failure rate from 25.2% to 15.3%,
 and the gains concentrate in exactly the queries where lexical matching failed.
 A method that had improved the mean while leaving the distribution shape
 unchanged would have been doing something else.
 
-The residual 8.9% is unexplained. It is smaller than the lexical gap by a factor
-of two and a half, and whatever causes it survives a multilingual model that
-does not require string identity.
+**The residual 8.9% is a different phenomenon.** Experiment 12 shows it is
+uniform across the score distribution rather than concentrated in a tail, so the
+terminology explanation does not carry over. It is small everywhere, between
+0.014 and 0.037 nDCG@10 at every percentile, and it survives a multilingual
+model that does not require string identity. That is the signature of a
+representation difference rather than a data problem, and it is untested.

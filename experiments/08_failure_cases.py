@@ -2,9 +2,12 @@
 
 Experiment 07 found the aggregate gap is produced by a tail. Roughly 90% of
 Portuguese queries behave like English ones; the worst 5 to 10% carry the
-difference. The correlation between per-query difficulty in the two languages is
-0.321, so each language fails on its own set rather than on inherently hard
-occupations.
+difference. The correlation between per-query difficulty in the two languages,
+measured on the count of non-gold skills outranking the best gold skill, is
+0.321. That count is heavily skewed, ranging to 1,162, so it overstates how
+independently the languages fail: correlating nDCG@10 on the same queries gives
+0.737. The languages do fail together more often than not, and what follows
+concerns the cases where they do not.
 
 Aggregate statistics cannot go further than that. This dumps the worst
 language-specific failures side by side for reading: the query text, the gold

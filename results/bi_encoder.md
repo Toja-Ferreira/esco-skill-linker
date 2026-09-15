@@ -9,13 +9,13 @@ Intervals are 95% percentile bootstrap over queries.
 | model | lang | documents | nDCG@10 (95% CI) | P@10 | R@10 | MRR | vs BM25 |
 |---|---|---|---:|---:|---:|---:|---:|
 | embeddinggemma | en | labels_desc | 0.3576 [0.3419, 0.3744] | 0.270 | 0.145 | 0.678 | +10.0% |
-| qwen3-4b | en | preferred | 0.3203 [0.3038, 0.3361] | 0.254 | 0.132 | 0.604 | -1.4% |
-| e5-base | en | labels_desc | 0.3145 [0.2987, 0.3307] | 0.238 | 0.127 | 0.634 | -3.2% |
+| qwen3-4b | en | preferred | 0.3203 [0.3038, 0.3361] | 0.254 | 0.132 | 0.604 | -1.5% |
+| e5-base | en | labels_desc | 0.3145 [0.2987, 0.3307] | 0.238 | 0.127 | 0.634 | -3.3% |
 | embeddinggemma | pt | labels_desc | 0.3284 [0.3122, 0.3448] | 0.248 | 0.130 | 0.640 | +23.5% |
-| qwen3-4b | pt | preferred | 0.3026 [0.2862, 0.3185] | 0.243 | 0.124 | 0.567 | +13.7% |
+| qwen3-4b | pt | preferred | 0.3026 [0.2862, 0.3185] | 0.243 | 0.124 | 0.567 | +13.8% |
 | e5-base | pt | labels_desc | 0.2630 [0.2466, 0.2784] | 0.197 | 0.105 | 0.551 | -1.1% |
 
-BM25 reference, best configuration on the same split: pt 0.266, en 0.325.
+BM25 reference, best configuration on the same split: pt 0.2658, en 0.3252.
 
 ## Language gap
 
@@ -24,7 +24,9 @@ BM25 reference, best configuration on the same split: pt 0.266, en 0.325.
 | e5-base | 0.2630 | 0.3145 | +19.6% |
 | embeddinggemma | 0.3284 | 0.3576 | +8.9% |
 | qwen3-4b | 0.3026 | 0.3203 | +5.9% |
-| *BM25* | 0.2660 | 0.3250 | +22.2% |
+| *BM25* | 0.2658 | 0.3252 | +22.3% |
+
+A smaller language gap is not automatically better. It can be reached by degrading the stronger language rather than improving the weaker one, so this table should be read alongside the absolute scores above.
 
 ## Dev sweep
 

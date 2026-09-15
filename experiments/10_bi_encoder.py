@@ -250,13 +250,22 @@ def main() -> None:
     print("wrote results/bi_encoder.md")
 
 
-# BM25 reference, from experiment 05's best configuration on test.
-BM25_TEST = {"pt": 0.266, "en": 0.325}
+def bm25_reference() -> dict[str, float]:
+    """BM25 at its best configuration on test, read from experiment 06's
+    recorded results rather than hardcoded, so the comparison cannot drift or
+    lose precision."""
+    path = RESULTS / "bm25_tuned_test.csv"
+    if not path.exists():
+        return {}
+    df = pd.read_csv(path)
+    df = df[df["setting"] == "default"]
+    return dict(zip(df["language"], df["ndcg@10"]))
 
 
 def render(dev: pd.DataFrame, test: pd.DataFrame) -> str:
     out: list[str] = []
     w = out.append
+    bm25 = bm25_reference()
 
     w("# Bi-encoder retrieval\n")
     w("Three multilingual checkpoints. Checkpoint and document variant selected "
@@ -271,15 +280,16 @@ def render(dev: pd.DataFrame, test: pd.DataFrame) -> str:
     w("|---|---|---|---:|---:|---:|---:|---:|")
     for _, r in test.sort_values(["language", "ndcg@10"],
                                  ascending=[True, False]).iterrows():
-        base = BM25_TEST.get(r["language"])
+        base = bm25.get(r["language"])
         delta = f"{r['ndcg@10'] / base - 1:+.1%}" if base else ""
         w(f"| {r['model']} | {r['language']} | {r['variant']} "
           f"| {r['ndcg@10']:.4f} [{r['ndcg@10_lo']:.4f}, {r['ndcg@10_hi']:.4f}] "
           f"| {r['precision@10']:.3f} | {r['recall@10']:.3f} | {r['mrr']:.3f} "
           f"| {delta} |")
     w("")
-    w(f"BM25 reference, best configuration on the same split: "
-      f"pt {BM25_TEST['pt']:.3f}, en {BM25_TEST['en']:.3f}.\n")
+    if bm25:
+        w(f"BM25 reference, best configuration on the same split: "
+          f"pt {bm25['pt']:.4f}, en {bm25['en']:.4f}.\n")
 
     if len(test):
         w("## Language gap\n")
@@ -290,9 +300,14 @@ def render(dev: pd.DataFrame, test: pd.DataFrame) -> str:
             if {"pt", "en"} <= set(sub.index):
                 pt, en = sub.loc["pt", "ndcg@10"], sub.loc["en", "ndcg@10"]
                 w(f"| {model} | {pt:.4f} | {en:.4f} | {en/pt - 1:+.1%} |")
-        w(f"| *BM25* | {BM25_TEST['pt']:.4f} | {BM25_TEST['en']:.4f} "
-          f"| {BM25_TEST['en']/BM25_TEST['pt'] - 1:+.1%} |")
+        if bm25:
+            w(f"| *BM25* | {bm25['pt']:.4f} | {bm25['en']:.4f} "
+              f"| {bm25['en']/bm25['pt'] - 1:+.1%} |")
         w("")
+        w("A smaller language gap is not automatically better. It can be "
+          "reached by degrading the stronger language rather than improving "
+          "the weaker one, so this table should be read alongside the "
+          "absolute scores above.\n")
 
     w("## Dev sweep\n")
     w("Used for selection only. Test numbers above come from the best row per "

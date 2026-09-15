@@ -32,13 +32,12 @@ queries where lexical matching failed.
 
 | method | English | Portuguese | gap |
 |---|---:|---:|---:|
-| BM25, stemmed, stopwords removed | 0.325 | 0.266 | +22.2% |
+| BM25, stemmed, stopwords removed | 0.325 | 0.266 | +22.3% |
 | Bi-encoder, EmbeddingGemma-300M | **0.358** | **0.328** | **+8.9%** |
 
-nDCG@10. Dense retrieval removes roughly three quarters of the language gap, and does so
-asymmetrically: Portuguese gains 23.5% where English gains 10.0%. A study reporting only a
-pooled figure across languages would have called that a modest 10% improvement and missed what
-it was doing.
+nDCG@10. Dense retrieval removes 60% of the language gap, and does so asymmetrically:
+Portuguese gains 23.5% where English gains 10.0%. A study reporting only a pooled figure across
+languages would have called that a modest 10% improvement and missed what it was doing.
 
 Two results worth noting alongside. A 308M model beat a 4B one in both languages, and
 `multilingual-e5-base` lost to BM25 in both, so the checkpoint matters more than the
@@ -75,15 +74,15 @@ So the question became:
 
 > **How much of a vocabulary mismatch penalty does multilingual dense retrieval remove?**
 
-Answered in [experiments 10 and 11](results/README.md): roughly three quarters of it, and by
-compressing the tail of failing queries rather than by improving retrieval generally. That is a
-concrete argument for dense methods wherever a classification has been translated rather than
-authored in the target language, which is the situation for 27 of ESCO's 28 languages. An 8.9%
-gap survives and is currently unexplained.
+Answered in [experiments 10 and 11](results/README.md): 60% of it, and by compressing the tail
+of failing queries rather than by improving retrieval generally. That is a concrete argument
+for dense methods wherever a classification has been translated rather than authored in the
+target language, which is the situation for 27 of ESCO's 28 languages. An 8.9% gap survives and
+is currently unexplained.
 
 A second question follows from the deployment setting. Because course documentation exists in
-both languages, and because the two languages fail on largely different queries, the practical
-question is not which language is better but whether using both beats using either.
+both languages, the practical question is not which language is better but whether using both
+beats using either.
 
 ## Prior art
 
@@ -351,11 +350,16 @@ deployed system has both texts for the same course unit. That makes the language
 design question rather than a constraint: which language should the system retrieve in, given
 both exist?
 
-Two properties make fusion promising here. ESCO assigns a stable URI per concept, so retrieval
-language and display language are independent: a system can retrieve using the English text and
-present the Portuguese label for the same concept. And per-query difficulty correlates only
-0.321 between the two languages, so each fails on largely different queries. Uncorrelated
-failures are the precondition for fusion beating either input alone.
+ESCO assigns a stable URI per concept, so retrieval language and display language are
+independent: a system can retrieve using the English text and present the Portuguese label for
+the same concept.
+
+The headroom is measured rather than assumed. Under the best bi-encoder, Portuguese fails on
+15.3% of queries and English on 12.3%, but only 9.0% fail in both. So 6.2% of occupations are
+Portuguese-only failures that the English text could recover, and 3.3% the reverse. Per-query
+scores correlate 0.825 between the languages, so most failures are shared and fusion's ceiling
+is modest. It is worth measuring because that ceiling is real, not because the languages are
+independent.
 
 Because per-query results are recorded per language against the same occupation URIs, fusion is
 an analysis over existing runs rather than a separate retrieval pipeline.
