@@ -18,6 +18,7 @@ not.
 | 10 | Bi-encoder retrieval | [`bi_encoder.md`](bi_encoder.md) | [`experiments/10_bi_encoder.py`](../experiments/10_bi_encoder.py) |
 | 11 | Dense against lexical, per query | [`dense_vs_lexical.md`](dense_vs_lexical.md) | [`experiments/11_dense_vs_lexical.py`](../experiments/11_dense_vs_lexical.py) |
 | 12 | Shape of the residual language gap | [`residual_gap.md`](residual_gap.md) | [`experiments/12_residual_gap.py`](../experiments/12_residual_gap.py) |
+| 13 | Hybrid and bilingual fusion | [`fusion.md`](fusion.md) | [`experiments/13_fusion.py`](../experiments/13_fusion.py) |
 
 Also here: [`dataset_profile.md`](dataset_profile.md) and
 [`split_profile.md`](split_profile.md), describing the release and the frozen
@@ -25,29 +26,26 @@ evaluation split.
 
 ## Current best
 
-Bi-encoder, `google/embeddinggemma-300m`, preferred label plus alternative
-labels plus description. 608 held-out occupation descriptions against all
-13,939 skills.
+608 held-out occupation descriptions against all 13,939 skills, nDCG@10.
 
-| | nDCG@10 | 95% CI | P@10 | R@10 | MRR |
-|---|---:|---|---:|---:|---:|
-| English | 0.3576 | [0.3419, 0.3744] | 0.270 | 0.145 | 0.678 |
-| Portuguese | 0.3284 | [0.3122, 0.3448] | 0.248 | 0.130 | 0.640 |
+| system | English | Portuguese | gap |
+|---|---:|---:|---:|
+| BM25, stemmed, stopwords removed | 0.3252 | 0.2659 | +22.3% |
+| Bi-encoder, `embeddinggemma-300m` | 0.3576 | 0.3284 | +8.9% |
+| **Hybrid, weighted score fusion** | **0.3794** | **0.3439** | +10.3% |
 
-Best lexical baseline, BM25 with stemming and stopword removal over the same
-fields:
+The recommended configuration is hybrid weighted score fusion, combining BM25
+with the bi-encoder in one language. Fusing all four runs, both methods in both
+languages, scores marginally higher at 0.3817 but is not distinguishable from it
+(paired difference +0.0023 [−0.0010, +0.0056]), so the simpler system is
+preferred.
 
-| | nDCG@10 | 95% CI | P@10 | R@10 | MRR |
-|---|---:|---|---:|---:|---:|
-| English | 0.3252 | [0.3084, 0.3416] | 0.250 | 0.134 | 0.611 |
-| Portuguese | 0.2658 | [0.2500, 0.2806] | 0.203 | 0.107 | 0.524 |
+Recall@10 is capped at 0.543 on this split, so the leading figure of 0.155 is
+29% of what is reachable.
 
-The language gap falls from 22.3% to 8.9%. Portuguese gains 23.5% from dense
-retrieval where English gains 10.0%, so the benefit is not uniform across
-languages.
-
-Recall@10 is capped at 0.543 on this split, so the leading figures are 27% and
-24% of what is reachable.
+Two things the headline table does not show. Dense retrieval closed 60% of the
+lexical language gap by compressing a tail of failing Portuguese queries, and
+fusion then widened it again, because lexical retrieval helps English more.
 
 ---
 
@@ -832,6 +830,117 @@ inferred.
 
 ---
 
+## 13: Fusion
+
+Two combinations, each justified by an earlier measurement rather than by the
+general observation that fusion tends to help. Experiment 11 showed BM25 and
+EmbeddingGemma fail on structurally different queries. Experiment 12 measured
+the bilingual headroom at 6.2% of occupations failing in Portuguese while
+succeeding in English.
+
+Runs are produced at depth 200 and fused. Reciprocal rank fusion has no weight,
+so it is scored on test directly. Weighted score fusion has its weight selected
+on dev and applied once to test.
+
+### Weighted score fusion works; rank fusion mostly does not
+
+Every combination is scored on the identical 608 queries, so the comparison is
+paired. Marginal intervals are a weak test here, since two overlapping intervals
+can still correspond to a difference holding on most queries. The interval below
+is on the per-query difference against the stronger of the runs being combined.
+
+| combination | fusion | fused | gain over better input | paired difference (95% CI) |
+|---|---|---:|---:|---|
+| hybrid pt | rrf | 0.3271 | −0.4% | −0.0013 [−0.0103, +0.0080] |
+| hybrid en | rrf | 0.3684 | +3.0% | +0.0108 [+0.0020, +0.0196] |
+| bilingual gemma | rrf | 0.3563 | −0.4% | −0.0013 [−0.0077, +0.0051] |
+| bilingual bm25 | rrf | 0.3194 | −1.8% | −0.0058 [−0.0138, +0.0026] |
+| all four | rrf | 0.3637 | +1.7% | +0.0061 [−0.0033, +0.0158] |
+| hybrid pt | wsf | 0.3439 | +4.7% | +0.0155 [+0.0097, +0.0211] |
+| **hybrid en** | **wsf** | **0.3794** | **+6.1%** | **+0.0218 [+0.0152, +0.0287]** |
+| bilingual gemma | wsf | 0.3647 | +2.0% | +0.0071 [+0.0028, +0.0115] |
+| bilingual bm25 | wsf | 0.3295 | +1.3% | +0.0044 [+0.0007, +0.0082] |
+| **all four** | **wsf** | **0.3817** | **+6.8%** | **+0.0241 [+0.0173, +0.0310]** |
+
+Only one of five rank-fusion combinations clears zero. `all four` under RRF looks
+like a +1.7% gain but its interval spans zero and it wins on exactly 50% of
+queries, which is a coin flip. All five weighted combinations clear zero.
+
+That is worth stating because reciprocal rank fusion is often presented as the
+safe parameter-free default. On this task the parameter-free method mostly
+failed and the tuned one worked, and reporting point estimates alone would have
+hidden it.
+
+### The two best configurations are not separable
+
+Comparing each configuration against a shared baseline leaves their difference
+from one another undetermined, since those comparisons are correlated. Direct
+paired comparisons:
+
+| a | b | a | b | difference (95% CI) | a wins |
+|---|---|---:|---:|---|---:|
+| all four (wsf) | hybrid en (wsf) | 0.3817 | 0.3794 | +0.0023 [−0.0010, +0.0056] | 42% |
+| all four (wsf) | hybrid en (rrf) | 0.3817 | 0.3684 | +0.0133 [+0.0082, +0.0182] | 51% |
+| hybrid en (wsf) | bilingual gemma (wsf) | 0.3794 | 0.3647 | +0.0147 [+0.0074, +0.0215] | 55% |
+| hybrid en (rrf) | bilingual gemma (wsf) | 0.3684 | 0.3647 | +0.0037 [−0.0054, +0.0124] | 51% |
+
+`all four` scores higher than `hybrid en` but the difference spans zero and it
+wins on only 42% of queries. They are not distinguishable on this split.
+
+That has a practical consequence. `hybrid en` needs one language and two
+retrievers; `all four` needs two languages and four. Given no measurable
+difference, the simpler system is the better recommendation.
+
+### Fusion lifts a minority of queries, not most of them
+
+The **wins** column is more informative than the mean. `all four` gains 6.8% on
+the mean while winning on 59% of queries. `bilingual gemma` wins on only 47%,
+losing slightly on the majority, and still shows a significant positive mean.
+
+That is tail recovery, and it matches experiment 12 exactly: bilingual fusion's
+headroom was 6.2% of occupations where Portuguese fails and English does not. It
+cannot improve the queries that already work, and it does not try to.
+
+### The fusion surface has an interior optimum on both axes
+
+The four-way sweep is parameterised over two axes: how much weight goes to
+lexical against dense, and how much to Portuguese against English.
+
+| lexical \ pt | 0.0 | 0.2 | 0.4 | 0.6 | 0.8 | 1.0 |
+|---|---:|---:|---:|---:|---:|---:|
+| 0.0 | 0.3616 | 0.3637 | 0.3611 | 0.3524 | 0.3364 | 0.3210 |
+| 0.2 | 0.3758 | 0.3788 | 0.3754 | 0.3647 | 0.3519 | 0.3347 |
+| **0.4** | 0.3797 | **0.3830** | 0.3814 | 0.3719 | 0.3555 | 0.3375 |
+| 0.6 | 0.3708 | 0.3767 | 0.3745 | 0.3642 | 0.3458 | 0.3242 |
+| 0.8 | 0.3534 | 0.3607 | 0.3597 | 0.3474 | 0.3243 | 0.3035 |
+| 1.0 | 0.3303 | 0.3385 | 0.3376 | 0.3226 | 0.3007 | 0.2798 |
+
+Smooth, with a single interior peak at lexical 0.4 and Portuguese 0.2. Interior
+on both axes means all four runs contribute; a peak at an edge would have meant
+one input was dead weight.
+
+The Portuguese weight of 0.2 is a deployment finding in itself. Given both texts,
+the best fused system leans heavily on the English one.
+
+### Fusion widens the language gap
+
+| system | en | pt | gap |
+|---|---:|---:|---:|
+| BM25 | 0.3252 | 0.2659 | +22.3% |
+| EmbeddingGemma | 0.3576 | 0.3284 | +8.9% |
+| hybrid, wsf | 0.3794 | 0.3439 | +10.3% |
+
+Adding lexical retrieval back in helps English more than Portuguese, +6.1%
+against +4.7%, so it re-imports part of the gap that dense retrieval had removed.
+The best-performing configuration is not the most language-equitable one, which
+follows directly from the lexical diagnosis in experiments 01 to 09.
+
+For a Portuguese-only deployment the relevant number is different again: hybrid
+Portuguese at 0.3439 is 29.3% above the Portuguese lexical baseline, and is the
+best available without an English text.
+
+---
+
 ## Where this leaves the central question
 
 The project set out to ask whether dense retrieval could compensate for a 23.8x
@@ -861,6 +970,13 @@ gap falls from 22.3% to 8.9%, the Portuguese failure rate from 25.2% to 15.3%,
 and the gains concentrate in exactly the queries where lexical matching failed.
 A method that had improved the mean while leaving the distribution shape
 unchanged would have been doing something else.
+
+**Fusion then widens the gap again.** Combining lexical with dense retrieval is
+the best-scoring system, 0.3794 in English and 0.3439 in Portuguese, but it
+helps English more, so the gap returns to 10.3%. The highest-scoring
+configuration and the most language-equitable one are not the same, which
+follows directly from the lexical diagnosis: bringing BM25 back in brings back
+the vocabulary-matching problem it carries.
 
 **The residual 8.9% is a different phenomenon.** Experiment 12 shows it is
 uniform across the score distribution rather than concentrated in a tail, so the

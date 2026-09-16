@@ -6,8 +6,8 @@ how well different retrieval approaches do it.
 
 Portuguese-focused, evaluated against English as the comparison language.
 
-> **Status:** benchmark frozen, lexical and dense retrieval scored, eleven experiments
-> recorded. Full findings in [`results/README.md`](results/README.md).
+> **Status:** benchmark frozen, lexical, dense and fusion retrieval scored, thirteen
+> experiments recorded. Full findings in [`results/README.md`](results/README.md).
 
 ## Results so far
 
@@ -33,16 +33,24 @@ queries where lexical matching failed.
 | method | English | Portuguese | gap |
 |---|---:|---:|---:|
 | BM25, stemmed, stopwords removed | 0.325 | 0.266 | +22.3% |
-| Bi-encoder, EmbeddingGemma-300M | **0.358** | **0.328** | **+8.9%** |
+| Bi-encoder, EmbeddingGemma-300M | 0.358 | 0.328 | +8.9% |
+| **Hybrid, weighted score fusion** | **0.379** | **0.344** | +10.3% |
 
 nDCG@10. Dense retrieval removes 60% of the language gap, and does so asymmetrically:
 Portuguese gains 23.5% where English gains 10.0%. A study reporting only a pooled figure across
 languages would have called that a modest 10% improvement and missed what it was doing.
 
-Two results worth noting alongside. A 308M model beat a 4B one in both languages, and
+Combining lexical with dense retrieval adds another 6% on top, but widens the language gap
+again, because BM25 helps English more than Portuguese. The best-performing system is not the
+most language-equitable one.
+
+Three results worth noting alongside. A 308M model beat a 4B one in both languages, and
 `multilingual-e5-base` lost to BM25 in both, so the checkpoint matters more than the
-architecture. And absent stopword handling turned out to cost Portuguese about a quarter of the
-lexical gap, which was a flaw in this repository rather than in the data.
+architecture. Absent stopword handling turned out to cost Portuguese about a quarter of the
+lexical gap, which was a flaw in this repository rather than in the data. And reciprocal rank
+fusion, usually presented as the safe parameter-free default, failed to beat its own inputs in
+four of five combinations, while weighted fusion with a dev-tuned weight succeeded in all
+five.
 
 Full analysis in [`results/README.md`](results/README.md).
 
