@@ -53,7 +53,7 @@ import pandas as pd
 
 from src.eval.metrics import DEFAULT_KS, aggregate, bootstrap_ci, evaluate_query
 from src.retrieval.fusion import weighted_score_fusion
-from src.retrieval.rerank import (RERANKERS, CrossEncoderReranker,
+from src.retrieval.rerank import (RERANKERS, build_reranker,
                                   recall_at_depths, rerank_at_depth,
                                   resolve_device)
 
@@ -73,6 +73,9 @@ DEPTHS = (10, 20, 50, 100)
 CEILING_DEPTHS = (10, 20, 50, 100, 200)
 
 HEADLINE = ["precision@10", "recall@10", "mrr", "ndcg@10", "micro_recall@10"]
+
+# Random shuffles of the shortlist, averaged, as a sanity floor.
+RANDOM_REPEATS = 20
 
 
 def load():
@@ -198,12 +201,15 @@ def run_split(reranker, fused, query_uris, occ_desc, docs, gold, max_depth,
             if ranked:
                 per_query[q] = evaluate_query(ranked[:max(DEFAULT_KS)], gold[q])
         out[depth] = per_query
-    return out, len(pairs), seconds
+    return out, len(pairs), seconds, by_query
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="bge-m3", choices=list(RERANKERS))
+    ap.add_argument("--tag", default=None,
+                    help="suffix for the output files, so checkpoints do not "
+                         "overwrite one another")
     ap.add_argument("--dev-sample", type=int, default=200,
                     help="dev queries used to select the shortlist depth")
     ap.add_argument("--batch-size", type=int, default=64)
@@ -215,14 +221,18 @@ def main() -> None:
     ap.add_argument("--render-only", action="store_true")
     args = ap.parse_args()
 
+    tag = args.tag or ("" if args.model == "bge-m3" else f"_{args.model}")
+
     if args.render_only:
-        dev = pd.read_csv(RESULTS / "rerank_dev.csv")
-        test = pd.read_csv(RESULTS / "rerank_test.csv")
-        ceil = pd.read_csv(RESULTS / "rerank_ceiling.csv")
-        (RESULTS / "rerank.md").write_text(
-            render(dev, test, ceil, args.model, args.dev_sample),
+        dev = pd.read_csv(RESULTS / f"rerank_dev{tag}.csv")
+        test = pd.read_csv(RESULTS / f"rerank_test{tag}.csv")
+        ceil = pd.read_csv(RESULTS / f"rerank_ceiling{tag}.csv")
+        dp = RESULTS / f"rerank_diagnostics{tag}.csv"
+        diag = pd.read_csv(dp) if dp.exists() else pd.DataFrame()
+        (RESULTS / f"rerank{tag}.md").write_text(
+            render(dev, test, ceil, args.model, args.dev_sample, diag),
             encoding="utf-8")
-        print("rewrote results/rerank.md from saved CSVs")
+        print(f"rewrote results/rerank{tag}.md from saved CSVs")
         return
 
     splits, texts, labels, gold = load()
@@ -236,18 +246,23 @@ def main() -> None:
 
     spec = RERANKERS[args.model]
     device = resolve_device(args.device, allow_cpu=args.allow_cpu)
-    reranker = CrossEncoderReranker(spec, device=device,
-                                    batch_size=args.batch_size,
-                                    fp16=not args.no_fp16)
+    reranker = build_reranker(spec, device=device,
+                              batch_size=args.batch_size,
+                              fp16=not args.no_fp16)
 
     print(f"reranker: {spec.hf_name} ({spec.licence})")
     print(f"first stage: hybrid weighted score fusion, bm25 + {DENSE}")
     print(f"dev sample {len(dev_uris)} of {len(dev_all)} | test {len(test_uris)}")
     print(f"depths {DEPTHS}, scored once at {max_depth}")
-    print(f"device: {device}  |  pairs to score: "
+    print(f"device: {device}  |  scoring: {spec.kind}  |  pairs: "
           f"{len(dev_uris) * max_depth * 2:,} dev, "
-          f"up to {len(test_uris) * max_depth * 2:,} test\n")
-    dev_rows, test_rows, ceil_rows, pq_rows = [], [], [], []
+          f"up to {len(test_uris) * max_depth * 2:,} test")
+
+    if hasattr(reranker, "sanity_check"):
+        good, bad = reranker.sanity_check()
+        print(f"sanity check: relevant {good:.4f} > irrelevant {bad:.4f}")
+    print()
+    dev_rows, test_rows, ceil_rows, pq_rows, diag_rows = [], [], [], [], []
 
     for lang in LANGUAGES:
         occ = texts[(texts["language"] == lang)
@@ -273,7 +288,7 @@ def main() -> None:
               f"({time.perf_counter() - t0:.0f}s)", flush=True)
         print(f"  {lang}: loading reranker and scoring "
               f"{len(dev_uris) * max_depth:,} dev pairs", flush=True)
-        dev_out, n_pairs, secs = run_split(
+        dev_out, n_pairs, secs, _ = run_split(
             reranker, fused_dev, dev_uris, occ_desc, docs, gold,
             max_depth, DEPTHS)
         print(f"  {lang} dev: {n_pairs:,} pairs in {secs:.0f}s "
@@ -301,7 +316,7 @@ def main() -> None:
         best_depth = max(cand, key=lambda r: r[SELECT_ON])["depth"]
 
         # Test, scored once at the selected depth.
-        test_out, n_pairs, secs = run_split(
+        test_out, n_pairs, secs, test_scores = run_split(
             reranker, fused_test, test_uris, occ_desc, docs, gold,
             best_depth, (best_depth,))
         per_query = test_out[best_depth]
@@ -346,6 +361,64 @@ def main() -> None:
                             **{k: v for k, v in s.items()
                                if not k.startswith("_")}})
 
+        # Random baseline. A reranker with weak but real signal should land
+        # between random and the first stage. Landing at random means no
+        # signal; landing below it means something is inverted or misaligned,
+        # which would make the result a bug rather than a finding.
+        rb = np.random.default_rng(args.seed)
+        rand_runs = []
+        for _ in range(RANDOM_REPEATS):
+            pq = {}
+            for q in test_uris:
+                cands = [d for d, _ in fused_test.get(q, [])]
+                if not cands:
+                    continue
+                head = cands[:best_depth]
+                rb.shuffle(head)
+                pq[q] = evaluate_query((head + cands[best_depth:])
+                                       [:max(DEFAULT_KS)], gold[q])
+            rand_runs.append(aggregate(list(pq.values()))[SELECT_ON])
+        rand_mean = float(np.mean(rand_runs))
+        test_rows.append({
+            "language": lang, "stage": "random", "depth": best_depth,
+            "ndcg@10": rand_mean,
+            "ndcg@10_lo": float(np.min(rand_runs)),
+            "ndcg@10_hi": float(np.max(rand_runs)),
+            "pairs": 0, "seconds": 0.0, "ms_per_query": 0.0,
+        })
+
+        # Can the reranker tell gold from non-gold at all? Reported as the
+        # probability that a randomly chosen gold candidate outscores a
+        # randomly chosen non-gold one from the same shortlist, which is the
+        # AUC. 0.5 is chance.
+        aucs, gold_means, other_means = [], [], []
+        for q, scored in test_scores.items():
+            g = [s for d, s in scored.items() if gold[q].get(d, 0) == 2]
+            o = [s for d, s in scored.items() if gold[q].get(d, 0) != 2]
+            if not g or not o:
+                continue
+            ga, oa = np.array(g), np.array(o)
+            wins = (ga[:, None] > oa[None, :]).sum()
+            ties = (ga[:, None] == oa[None, :]).sum()
+            aucs.append((wins + 0.5 * ties) / (len(ga) * len(oa)))
+            gold_means.append(ga.mean())
+            other_means.append(oa.mean())
+        diag_rows.append({
+            "language": lang, "model": args.model, "depth": best_depth,
+            "queries": len(aucs),
+            "auc": float(np.mean(aucs)),
+            "auc_lo": float(np.quantile(aucs, 0.025)),
+            "auc_hi": float(np.quantile(aucs, 0.975)),
+            "mean_gold_score": float(np.mean(gold_means)),
+            "mean_other_score": float(np.mean(other_means)),
+            "random_ndcg": rand_mean,
+            "first_stage_ndcg": b_agg[SELECT_ON],
+            "reranked_ndcg": agg[SELECT_ON],
+        })
+        print(f"    random baseline: {SELECT_ON} {rand_mean:.4f}  |  "
+              f"gold-vs-rest AUC {np.mean(aucs):.3f} "
+              f"(0.5 = chance)")
+
         # Oracle at every depth: the headroom a perfect reranker would have.
         for depth in DEPTHS:
             o_pq = oracle_rerank(fused_test, test_uris, gold, depth)
@@ -371,22 +444,26 @@ def main() -> None:
     dev = pd.DataFrame(dev_rows)
     test = pd.DataFrame(test_rows)
     ceil = pd.DataFrame(ceil_rows)
-    dev.to_csv(RESULTS / "rerank_dev.csv", index=False)
-    test.to_csv(RESULTS / "rerank_test.csv", index=False)
-    ceil.to_csv(RESULTS / "rerank_ceiling.csv", index=False)
-    pd.DataFrame(pq_rows).to_csv(RESULTS / "rerank_per_query.csv", index=False)
-    (RESULTS / "rerank.md").write_text(
-        render(dev, test, ceil, args.model, len(dev_uris)), encoding="utf-8")
+    dev.to_csv(RESULTS / f"rerank_dev{tag}.csv", index=False)
+    test.to_csv(RESULTS / f"rerank_test{tag}.csv", index=False)
+    ceil.to_csv(RESULTS / f"rerank_ceiling{tag}.csv", index=False)
+    pd.DataFrame(pq_rows).to_csv(RESULTS / f"rerank_per_query{tag}.csv", index=False)
+    diag = pd.DataFrame(diag_rows)
+    diag.to_csv(RESULTS / f"rerank_diagnostics{tag}.csv", index=False)
+    (RESULTS / f"rerank{tag}.md").write_text(
+        render(dev, test, ceil, args.model, len(dev_uris), diag),
+        encoding="utf-8")
 
-    print("wrote results/rerank_dev.csv")
-    print("wrote results/rerank_test.csv")
-    print("wrote results/rerank_ceiling.csv")
-    print("wrote results/rerank_per_query.csv")
-    print("wrote results/rerank.md")
+    for name in ("rerank_dev.csv", "rerank_test.csv", "rerank_ceiling.csv",
+                 "rerank_per_query.csv", "rerank_diagnostics.csv",
+                 "rerank.md"):
+        stem, ext = name.rsplit(".", 1)
+        print(f"wrote results/{stem}{tag}.{ext}")
 
 
 def render(dev: pd.DataFrame, test: pd.DataFrame, ceil: pd.DataFrame,
-           model: str, dev_sample: int) -> str:
+           model: str, dev_sample: int,
+           diag: pd.DataFrame | None = None) -> str:
     out: list[str] = []
     w = out.append
     spec = RERANKERS[model]
@@ -432,6 +509,37 @@ def render(dev: pd.DataFrame, test: pd.DataFrame, ceil: pd.DataFrame,
           f"| {r['ndcg@10']:.4f} [{r['ndcg@10_lo']:.4f}, {r['ndcg@10_hi']:.4f}] "
           f"| {r['precision@10']:.3f} | {r['recall@10']:.3f} | {r['mrr']:.3f} |")
     w("")
+
+    if diag is not None and len(diag):
+        w("## Is the result real, or an implementation error?\n")
+        w("A reranker with weak but genuine signal should land between a "
+          "random shuffle of the shortlist and the first stage. Landing at "
+          "random means no signal at all. Landing **below** random would mean "
+          "the ordering is inverted or misaligned, which would make this a "
+          "bug rather than a finding.\n")
+        w("AUC is the probability that a randomly chosen gold candidate "
+          "outscores a randomly chosen non-gold one from the same shortlist. "
+          "0.5 is chance; it tests whether the model can separate them at all, "
+          "independently of how the ranking is assembled. The bracketed range "
+          "is the 2.5th to 97.5th percentile **across queries**, not "
+          "uncertainty on the mean: a query with one or two gold items in its "
+          "shortlist yields an AUC of 0 or 1 by construction, so the spread is "
+          "wide even when the mean is well determined.\n")
+        w("| language | random | reranked | first stage | recovered | gold-vs-rest AUC | per-query range | mean gold | mean other |")
+        w("|---|---:|---:|---:|---:|---:|---|---:|---:|")
+        for _, r in diag.iterrows():
+            span = r["first_stage_ndcg"] - r["random_ndcg"]
+            rec = (r["reranked_ndcg"] - r["random_ndcg"]) / span if span else float("nan")
+            w(f"| {r['language']} | {r['random_ndcg']:.4f} "
+              f"| {r['reranked_ndcg']:.4f} | {r['first_stage_ndcg']:.4f} "
+              f"| {rec:.0%} | {r['auc']:.3f} "
+              f"| [{r['auc_lo']:.2f}, {r['auc_hi']:.2f}] "
+              f"| {r['mean_gold_score']:.4f} | {r['mean_other_score']:.4f} |")
+        w("")
+        w("**Recovered** is where the reranker sits between a random shuffle "
+          "and the first stage. Near 100% means it reproduces the first "
+          "stage's ordering quality without exceeding it. Above 0% rules out "
+          "an inverted or misaligned implementation.\n")
 
     oracle = test[test["stage"] == "oracle"]
     base = test[test["stage"] == "first stage"].set_index("language")
