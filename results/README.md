@@ -19,7 +19,7 @@ not.
 | 11 | Dense against lexical, per query | [`dense_vs_lexical.md`](dense_vs_lexical.md) | [`experiments/11_dense_vs_lexical.py`](../experiments/11_dense_vs_lexical.py) |
 | 12 | Shape of the residual language gap | [`residual_gap.md`](residual_gap.md) | [`experiments/12_residual_gap.py`](../experiments/12_residual_gap.py) |
 | 13 | Hybrid and bilingual fusion | [`fusion.md`](fusion.md) | [`experiments/13_fusion.py`](../experiments/13_fusion.py) |
-| 14 | Cross-encoder reranking, and the ordering ceiling | [`rerank.md`](rerank.md) | [`experiments/14_rerank.py`](../experiments/14_rerank.py) |
+| 14 | Cross-encoder reranking, and the ordering ceiling | [`rerank.md`](rerank.md), [`rerank_qwen3-0.6b.md`](rerank_qwen3-0.6b.md) | [`experiments/14_rerank.py`](../experiments/14_rerank.py) |
 
 Also here: [`dataset_profile.md`](dataset_profile.md) and
 [`split_profile.md`](split_profile.md), describing the release and the frozen
@@ -956,47 +956,107 @@ together with full attention, which is the mechanism that could bridge
 *puncionadora* against *prensa biela-manivela*. Reranking is therefore a
 targeted test of the diagnosis as well as a standard second stage.
 
-`BAAI/bge-reranker-v2-m3`, Apache 2.0, the standard open multilingual
-cross-encoder, reranking the hybrid weighted fusion first stage. Depth selected
-on a dev subsample, applied once to test.
+Two checkpoints, chosen to differ in architecture rather than only in size:
+
+| checkpoint | licence | scoring |
+|---|---|---|
+| `BAAI/bge-reranker-v2-m3` | Apache 2.0 | regression head, 568M |
+| `Qwen/Qwen3-Reranker-0.6B` | Apache 2.0 | causal LM answering yes or no |
 
 Jina's v3.5 is smaller and stronger on BEIR but its weights are CC-BY-NC-4.0,
-which rules it out for a public institution. Qwen3-Reranker scores higher on
-MMTEB-R but uses a generative yes/no formulation rather than a regression head,
-so it needs a separate scoring path and was left for a follow-up.
+which rules it out for a public institution. Qwen3 has no regression head: it is
+prompted to judge relevance and answer yes or no, and the score is the
+probability mass on "yes". Loading it through the CrossEncoder API would attach
+a randomly initialised head and produce confident-looking noise, so it has its
+own scoring path, guarded by a sanity check that scores a known-relevant pair
+against a known-irrelevant one before any real work.
 
-### The reranker does nothing
+Both rerank the hybrid weighted fusion first stage. Depth selected on a dev
+subsample, applied once to test.
 
-| language | first stage | reranked | gain | paired difference (95% CI) | won |
-|---|---:|---:|---:|---|---:|
-| pt | 0.3439 | 0.3482 | +1.2% | +0.0042 [−0.0043, +0.0132] | 49% |
-| en | 0.3794 | 0.3793 | −0.0% | −0.0001 [−0.0056, +0.0051] | 46% |
+### Neither checkpoint beats the first stage
 
-Both intervals span zero and reranking wins on fewer than half the queries.
+| checkpoint | language | first stage | reranked | gain | paired difference (95% CI) | won |
+|---|---|---:|---:|---:|---|---:|
+| bge-m3 | pt | 0.3439 | 0.3482 | +1.2% | +0.0042 [−0.0043, +0.0132] | 49% |
+| bge-m3 | en | 0.3794 | 0.3793 | −0.0% | −0.0001 [−0.0056, +0.0051] | 46% |
+| qwen3-0.6b | pt | 0.3439 | 0.3351 | −2.6% | **−0.0088 [−0.0141, −0.0033]** | 41% |
+| qwen3-0.6b | en | 0.3794 | 0.3746 | −1.3% | −0.0048 [−0.0098, +0.0009] | 43% |
 
-The dev depth sweep shows why, and it is not neutrality:
+bge-m3 does nothing: both intervals span zero. Qwen3 is significantly worse
+than not reranking at all in Portuguese, and in the same direction in English.
+Neither wins on half the queries.
 
-| depth | pt | en |
-|---|---:|---:|
-| 0, no rerank | 0.3551 | 0.3933 |
-| 10 | 0.3589 | 0.3868 |
-| 20 | 0.3603 | 0.3681 |
-| 50 | 0.3394 | 0.3403 |
-| 100 | 0.3305 | 0.3138 |
+### Both degrade as the shortlist deepens
 
-Monotonic degradation with depth. The more candidates the cross-encoder is
-allowed to reorder, the worse the result. English is worse at every depth
-including 10. That is the signature of a model whose ordering is worse than the
-first stage's, so giving it more to reorder does more damage. Depth selection
-landing on 10 and 20, the shallowest options available, says the same thing.
+Dev sweep, nDCG@10:
 
-A plausible cause, recorded as a hypothesis: the query and document shapes are
-inverted relative to what these rerankers are trained on. bge-reranker-v2-m3 is
-trained on short queries against long passages. Here the query is a 100-word
-occupation description and the document is a skill label plus one sentence,
-around 25 tokens.
+| depth | bge pt | bge en | qwen pt | qwen en |
+|---|---:|---:|---:|---:|
+| 0, no rerank | 0.3551 | 0.3933 | 0.3551 | 0.3933 |
+| 10 | 0.3589 | 0.3868 | 0.3484 | 0.3793 |
+| 20 | 0.3603 | 0.3681 | 0.3346 | 0.3689 |
+| 50 | 0.3394 | 0.3403 | 0.3188 | 0.3480 |
+| 100 | 0.3305 | 0.3138 | 0.3094 | 0.3311 |
 
-### But the ordering headroom is enormous
+The more candidates a cross-encoder is allowed to reorder, the worse the
+outcome, and depth selection lands on 10 and 20, the shallowest options
+available.
+
+### This is not an implementation error, and the models are not blind
+
+A null result of this shape invites two very different explanations, and the
+headline numbers cannot tell them apart. Two checks separate them.
+
+A **random baseline** shuffles each shortlist instead of reranking it. A model
+with weak but genuine signal should land between random and the first stage.
+Landing at random would mean no signal; landing below random would mean an
+inverted or misaligned implementation, which would make this a bug.
+
+**Gold-versus-rest AUC** is the probability that a randomly chosen gold
+candidate outscores a randomly chosen non-gold one from the same shortlist. It
+sidesteps the ranking machinery entirely and asks only whether the model can
+separate the two classes.
+
+| checkpoint | language | random | reranked | first stage | recovered | AUC |
+|---|---|---:|---:|---:|---:|---:|
+| bge-m3 | pt | 0.2161 | 0.3482 | 0.3439 | 103% | 0.717 |
+| bge-m3 | en | 0.3258 | 0.3793 | 0.3794 | 100% | 0.695 |
+| qwen3-0.6b | pt | 0.2939 | 0.3351 | 0.3439 | 82% | 0.668 |
+| qwen3-0.6b | en | 0.3258 | 0.3746 | 0.3794 | 91% | 0.680 |
+
+Both checks come back clearly positive. Every configuration sits far above
+random, and every AUC is well above chance, with mean gold scores above mean
+non-gold throughout.
+
+So the result is **not** that cross-encoder reranking fails here. The rerankers
+rank competently. They reproduce between 82% and 103% of the ordering quality
+the first stage already achieves, and then stop. An off-the-shelf reranker
+matches a dev-tuned hybrid fusion without exceeding it.
+
+Read that way, the depth degradation also makes sense. The deeper the
+shortlist, the more of the fusion's ordering the reranker replaces with its own,
+and since its own is no better, the result drifts down toward what its
+standalone quality would give.
+
+### A hypothesis for why they do not exceed it
+
+The query and document shapes are inverted relative to what these rerankers are
+trained on. Both are trained on short queries against long passages. Here the
+query is a 100-word occupation description and the document is a skill label
+plus one sentence, around 25 tokens.
+
+Qwen3's own calibration is consistent with that. Its sanity check passed with a
+370-fold margin, so the scoring path is sound, but a clearly relevant pair
+received P(yes) = 0.037: the model answers "no" with 96% confidence on a correct
+match. Only ordering matters for ranking, so this does not invalidate the
+scores, but it suggests the pairs are unlike what it was trained to judge.
+
+This remains a hypothesis. Testing it would mean reranking with short queries,
+for instance single sentences from the occupation description, and seeing
+whether the models then exceed the first stage.
+
+### The ordering headroom is enormous
 
 The oracle sorts each shortlist by true relevance, so it is what a flawless
 reranker would reach over the same candidates. No model, just a sort over the
@@ -1008,22 +1068,28 @@ recorded runs.
 | en | 0.3794 | 0.4648 | 0.5932 | 0.7342 | 0.8212 |
 
 Perfect ordering over a top-100 shortlist would raise nDCG@10 by **132% in
-Portuguese and 116% in English**. The reranker captured 2.0% of that headroom in
-Portuguese and −0.1% in English.
+Portuguese and 116% in English**. Share of that headroom captured:
+
+| checkpoint | pt | en |
+|---|---:|---:|
+| bge-m3 | +2.0% | −0.1% |
+| qwen3-0.6b | −10.1% | −5.6% |
 
 That distinction matters. "Reranking did not help" and "there is nothing left to
 gain from reranking" look identical in the headline number and point at
-completely different work. Here the shortlist is far from exhausted.
+completely different work. Here the shortlist is far from exhausted, and the
+rerankers that do rank competently still capture none of what is available.
 
 ### The shortlist is good; the ranking is bad
 
 Oracle MRR at depth 10 is 0.912 in Portuguese and 0.926 in English. Sorting the
 top 10 by relevance puts any gold skill at rank 1, so those figures say a gold
 skill is **already inside the first stage's top 10 for roughly 91% of queries**.
-The measured MRR is 0.654 and 0.700.
+The measured MRR is 0.654 and 0.700, and both rerankers lowered it further, to
+0.628 and 0.683 under Qwen3.
 
 The system finds correct answers and fails to put them first. For an interface
-that shows a teacher a handful of suggestions, that is the gap that matters.
+showing a teacher a handful of suggestions, that is the gap that matters.
 
 ### Most of the residual language gap is ordering, not retrieval
 
@@ -1045,14 +1111,29 @@ retrieval failure. Portuguese candidates are being found and then ordered worse.
 
 ### Cost
 
-| language | depth | pairs scored | ms/query |
-|---|---:|---:|---:|
-| pt | 20 | 12,160 | 48.9 |
-| en | 10 | 6,080 | 19.8 |
+| checkpoint | language | depth | pairs scored | ms/query |
+|---|---|---:|---:|---:|
+| bge-m3 | pt | 20 | 12,160 | 49.8 |
+| bge-m3 | en | 10 | 6,080 | 20.4 |
+| qwen3-0.6b | pt | 10 | 6,080 | 141.8 |
+| qwen3-0.6b | en | 10 | 6,080 | 95.1 |
 
-Against well under a millisecond for the first stage, for no measurable gain. A
-cross-encoder scores every pair individually, so nothing is precomputed and cost
-scales directly with shortlist depth.
+On the same 6,080 pairs in English, Qwen3 is about 4.7 times slower than bge and
+scores lower. Against a first stage answering in well under a millisecond, both
+are expensive for no gain. A cross-encoder scores every pair individually, so
+nothing is precomputed and cost scales directly with depth.
+
+### What this experiment concludes
+
+Reranking is not worth its cost on this task, and the reason is specific rather
+than general. The rerankers work: they separate gold from non-gold well above
+chance and reproduce 82% to 103% of the first stage's ordering quality. They
+simply do not improve on a hybrid fusion that was already tuned on dev, while
+adding 20 to 140 ms per query.
+
+Meanwhile the oracle says perfect ordering of the same candidates would more
+than double the score. The ordering problem is large, real, and untouched by
+off-the-shelf cross-encoders.
 
 ---
 
