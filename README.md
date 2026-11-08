@@ -6,7 +6,7 @@ how well different retrieval approaches do it.
 
 Portuguese-focused, evaluated against English as the comparison language.
 
-> **Status:** benchmark frozen, lexical, dense and fusion retrieval scored, thirteen
+> **Status:** benchmark frozen, lexical, dense, fusion and reranking scored, fourteen
 > experiments recorded. Full findings in [`results/README.md`](results/README.md).
 
 ## Results so far
@@ -43,6 +43,13 @@ languages would have called that a modest 10% improvement and missed what it was
 Combining lexical with dense retrieval adds another 6% on top, but widens the language gap
 again, because BM25 helps English more than Portuguese. The best-performing system is not the
 most language-equitable one.
+
+The bottleneck has since moved. A flawless reranker over the same top-100 candidates would
+reach 0.797 in Portuguese and 0.821 in English, more than double the best system, and a correct
+skill already sits in the top 10 for roughly 91% of queries. An off-the-shelf multilingual
+cross-encoder captured 2% of that headroom in Portuguese and none in English. The unsolved
+problem is ordering rather than retrieval, and most of the remaining language gap is ordering
+too: under perfect ranking of the same shortlist it falls from 10.3% to 3.1%.
 
 Three results worth noting alongside. A 308M model beat a 4B one in both languages, and
 `multilingual-e5-base` lost to BM25 in both, so the checkpoint matters more than the

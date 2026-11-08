@@ -19,6 +19,7 @@ not.
 | 11 | Dense against lexical, per query | [`dense_vs_lexical.md`](dense_vs_lexical.md) | [`experiments/11_dense_vs_lexical.py`](../experiments/11_dense_vs_lexical.py) |
 | 12 | Shape of the residual language gap | [`residual_gap.md`](residual_gap.md) | [`experiments/12_residual_gap.py`](../experiments/12_residual_gap.py) |
 | 13 | Hybrid and bilingual fusion | [`fusion.md`](fusion.md) | [`experiments/13_fusion.py`](../experiments/13_fusion.py) |
+| 14 | Cross-encoder reranking, and the ordering ceiling | [`rerank.md`](rerank.md) | [`experiments/14_rerank.py`](../experiments/14_rerank.py) |
 
 Also here: [`dataset_profile.md`](dataset_profile.md) and
 [`split_profile.md`](split_profile.md), describing the release and the frozen
@@ -27,6 +28,12 @@ evaluation split.
 ## Current best
 
 608 held-out occupation descriptions against all 13,939 skills, nDCG@10.
+
+The headline number is not the most important one here. Experiment 14 measures
+what a flawless reranker would reach over the same top-100 candidates: **0.797
+Portuguese and 0.821 English**, more than double the best system. The shortlist
+already contains a correct skill in its top 10 for roughly 91% of queries. The
+unsolved problem is ordering, not retrieval.
 
 | system | English | Portuguese | gap |
 |---|---:|---:|---:|
@@ -941,6 +948,114 @@ best available without an English text.
 
 ---
 
+## 14: Cross-encoder reranking, and the ordering ceiling
+
+A bi-encoder embeds query and document independently, so a rare technical term
+contributes a small share of one fixed vector. A cross-encoder reads the pair
+together with full attention, which is the mechanism that could bridge
+*puncionadora* against *prensa biela-manivela*. Reranking is therefore a
+targeted test of the diagnosis as well as a standard second stage.
+
+`BAAI/bge-reranker-v2-m3`, Apache 2.0, the standard open multilingual
+cross-encoder, reranking the hybrid weighted fusion first stage. Depth selected
+on a dev subsample, applied once to test.
+
+Jina's v3.5 is smaller and stronger on BEIR but its weights are CC-BY-NC-4.0,
+which rules it out for a public institution. Qwen3-Reranker scores higher on
+MMTEB-R but uses a generative yes/no formulation rather than a regression head,
+so it needs a separate scoring path and was left for a follow-up.
+
+### The reranker does nothing
+
+| language | first stage | reranked | gain | paired difference (95% CI) | won |
+|---|---:|---:|---:|---|---:|
+| pt | 0.3439 | 0.3482 | +1.2% | +0.0042 [−0.0043, +0.0132] | 49% |
+| en | 0.3794 | 0.3793 | −0.0% | −0.0001 [−0.0056, +0.0051] | 46% |
+
+Both intervals span zero and reranking wins on fewer than half the queries.
+
+The dev depth sweep shows why, and it is not neutrality:
+
+| depth | pt | en |
+|---|---:|---:|
+| 0, no rerank | 0.3551 | 0.3933 |
+| 10 | 0.3589 | 0.3868 |
+| 20 | 0.3603 | 0.3681 |
+| 50 | 0.3394 | 0.3403 |
+| 100 | 0.3305 | 0.3138 |
+
+Monotonic degradation with depth. The more candidates the cross-encoder is
+allowed to reorder, the worse the result. English is worse at every depth
+including 10. That is the signature of a model whose ordering is worse than the
+first stage's, so giving it more to reorder does more damage. Depth selection
+landing on 10 and 20, the shallowest options available, says the same thing.
+
+A plausible cause, recorded as a hypothesis: the query and document shapes are
+inverted relative to what these rerankers are trained on. bge-reranker-v2-m3 is
+trained on short queries against long passages. Here the query is a 100-word
+occupation description and the document is a skill label plus one sentence,
+around 25 tokens.
+
+### But the ordering headroom is enormous
+
+The oracle sorts each shortlist by true relevance, so it is what a flawless
+reranker would reach over the same candidates. No model, just a sort over the
+recorded runs.
+
+| language | first stage | oracle @10 | oracle @20 | oracle @50 | oracle @100 |
+|---|---:|---:|---:|---:|---:|
+| pt | 0.3439 | 0.4307 | 0.5540 | 0.7066 | 0.7968 |
+| en | 0.3794 | 0.4648 | 0.5932 | 0.7342 | 0.8212 |
+
+Perfect ordering over a top-100 shortlist would raise nDCG@10 by **132% in
+Portuguese and 116% in English**. The reranker captured 2.0% of that headroom in
+Portuguese and −0.1% in English.
+
+That distinction matters. "Reranking did not help" and "there is nothing left to
+gain from reranking" look identical in the headline number and point at
+completely different work. Here the shortlist is far from exhausted.
+
+### The shortlist is good; the ranking is bad
+
+Oracle MRR at depth 10 is 0.912 in Portuguese and 0.926 in English. Sorting the
+top 10 by relevance puts any gold skill at rank 1, so those figures say a gold
+skill is **already inside the first stage's top 10 for roughly 91% of queries**.
+The measured MRR is 0.654 and 0.700.
+
+The system finds correct answers and fails to put them first. For an interface
+that shows a teacher a handful of suggestions, that is the gap that matters.
+
+### Most of the residual language gap is ordering, not retrieval
+
+| | pt | en | gap |
+|---|---:|---:|---:|
+| first stage | 0.3439 | 0.3794 | +10.3% |
+| oracle @10 | 0.4307 | 0.4648 | +7.9% |
+| oracle @20 | 0.5540 | 0.5932 | +7.1% |
+| oracle @50 | 0.7066 | 0.7342 | +3.9% |
+| oracle @100 | 0.7968 | 0.8212 | +3.1% |
+
+This speaks directly to the residual experiment 12 left unexplained. The
+Portuguese shortlist contains nearly as much gold as the English one, recall@100
+of 0.361 against 0.388, a 7.5% difference. Give both perfect ordering and the
+nDCG gap falls from 10.3% to 3.1%.
+
+So what survived dense retrieval is largely a ranking failure rather than a
+retrieval failure. Portuguese candidates are being found and then ordered worse.
+
+### Cost
+
+| language | depth | pairs scored | ms/query |
+|---|---:|---:|---:|
+| pt | 20 | 12,160 | 48.9 |
+| en | 10 | 6,080 | 19.8 |
+
+Against well under a millisecond for the first stage, for no measurable gain. A
+cross-encoder scores every pair individually, so nothing is precomputed and cost
+scales directly with shortlist depth.
+
+---
+
 ## Where this leaves the central question
 
 The project set out to ask whether dense retrieval could compensate for a 23.8x
@@ -978,9 +1093,10 @@ configuration and the most language-equitable one are not the same, which
 follows directly from the lexical diagnosis: bringing BM25 back in brings back
 the vocabulary-matching problem it carries.
 
-**The residual 8.9% is a different phenomenon.** Experiment 12 shows it is
+**The residual is largely an ordering failure.** Experiment 12 showed it is
 uniform across the score distribution rather than concentrated in a tail, so the
-terminology explanation does not carry over. It is small everywhere, between
-0.014 and 0.037 nDCG@10 at every percentile, and it survives a multilingual
-model that does not require string identity. That is the signature of a
-representation difference rather than a data problem, and it is untested.
+terminology explanation does not carry over. Experiment 14 locates it: the
+Portuguese shortlist contains nearly as much gold as the English one, recall@100
+of 0.361 against 0.388, and under perfect ordering of that shortlist the nDCG
+gap falls from 10.3% to 3.1%. Portuguese candidates are being retrieved and then
+ranked worse, which is a different problem from being missed.
