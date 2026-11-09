@@ -455,6 +455,7 @@ an analysis over existing runs rather than a separate retrieval pipeline.
 src/ingest/      load and normalise the ESCO release
 src/eval/        benchmark construction and metrics
 src/retrieval/   one module per approach
+src/linker.py    the selected pipeline, for one learning outcome at a time
 experiments/     scripts producing rows in the results table
 results/         committed output of every run
 data/raw/        source release files (gitignored)
@@ -498,9 +499,57 @@ clone. The release is pinned and verifiable instead:
    language (`pt`, `en`).
 3. Extract into `data/raw/pt/` and `data/raw/en/`.
 4. Verify: `(cd data && sha256sum -c checksums.txt)`
+5. Build the derived tables: `python -m src.ingest.build`
 
 `data/checksums.txt` and `data/README.md` record the version, download date, and hash of every
 source file.
+
+## Try it
+
+`src/linker.py` runs the selected system on one learning outcome at a time: BM25 and
+EmbeddingGemma fused with the dev-tuned weight, optionally followed by LLM reranking of the top
+20. It needs the data from the previous section.
+
+```bash
+python -m src.linker --lang pt "Aplicar técnicas de aprendizagem automática a dados de sensores"
+python -m src.linker --lang en --rerank qwen3-4b-local
+python -m src.linker --lang pt --rerank deepseek
+```
+
+The first of those, without reranking:
+
+```
+   1. utilizar aprendizagem por máquina  (competência)
+      utilise machine learning  (skill)
+   2. ciência dos dados  (conhecimento)
+      data science  (knowledge)
+   3. aprendizagem automática  (conhecimento)
+      machine learning  (knowledge)
+   4. aplicar técnicas de análise estatística  (competência)
+      apply statistical analysis techniques  (skill)
+   5. efetuar redução de dimensionalidade  (competência)
+      perform dimensionality reduction  (skill)
+   6. testar sensores  (competência)
+      test sensors  (skill)
+   7. análise de dados  (conhecimento)
+      data mining  (knowledge)
+   8. tecnologia de gémeos digitais  (conhecimento)
+      digital twin technology  (knowledge)
+   9. leitura de contador automático  (conhecimento)
+      automatic meter reading  (knowledge)
+  10. fazer modelo de simulação de sensores  (competência)
+      model sensor  (skill)
+```
+
+ESCO types each concept as a *skill* (*competência*), something a person does, or *knowledge*
+(*conhecimento*), something a person knows, which maps onto how learning outcomes are usually
+written. Each result shows its label and type in both languages, query language first.
+
+Without a learning outcome it starts an interactive prompt, so the indexes and models load once
+and each further query costs only its own retrieval. Every result shows the skill's label in
+both languages, since an ESCO concept keeps one URI across all of them. The first run in each
+language embeds all 13,939 skills, which takes a minute or two on a GPU; later runs read the
+cached embeddings.
 
 ## Design notes
 
