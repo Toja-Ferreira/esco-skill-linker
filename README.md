@@ -497,7 +497,7 @@ clone. The release is pinned and verifiable instead:
 2. Select version **v1.2.1**, content **Classification**, format **csv**, and download once per
    language (`pt`, `en`).
 3. Extract into `data/raw/pt/` and `data/raw/en/`.
-4. Verify: `sha256sum -c data/checksums.txt`
+4. Verify: `(cd data && sha256sum -c checksums.txt)`
 
 `data/checksums.txt` and `data/README.md` record the version, download date, and hash of every
 source file.
