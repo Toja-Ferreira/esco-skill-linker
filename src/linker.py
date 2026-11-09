@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+import unicodedata
 from pathlib import Path
 
 import numpy as np
@@ -70,6 +71,19 @@ def top_n(scores: np.ndarray, uris: np.ndarray, n: int) -> list[tuple[str, float
     idx = np.argpartition(-scores, n - 1)[:n]
     idx = idx[np.argsort(-scores[idx], kind="stable")]
     return [(uris[i], float(scores[i])) for i in idx]
+
+
+def clean(text: str) -> str:
+    """Make terminal input safe for the tokenisers.
+
+    A terminal can hand Python bytes that are not valid UTF-8, for instance
+    when backspace deletes half of an accented character. Python keeps such
+    bytes as lone surrogates, which the Rust tokenisers reject outright. Round
+    trip them back to bytes, decode properly, drop anything unrecoverable, and
+    normalise so a composed and a decomposed "ç" are the same string.
+    """
+    text = text.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
+    return unicodedata.normalize("NFC", text.replace("\ufffd", "")).strip()
 
 
 def truncate(text: str, words: int = CANDIDATE_WORDS) -> str:
@@ -155,6 +169,7 @@ class SkillLinker:
                                      [self.weight, 1.0 - self.weight])["q"]
 
     def link(self, text: str, k: int = 10) -> tuple[list[str], dict]:
+        text = clean(text)
         info: dict = {}
         t0 = time.perf_counter()
         ranked = [u for u, _ in self.first_stage(text)]
@@ -213,16 +228,26 @@ def main() -> None:
         linker.show(" ".join(args.text), args.k)
         return
 
+    try:
+        # Gives input() proper line editing, so backspace removes a whole
+        # accented character rather than one of its bytes.
+        import readline  # noqa: F401
+    except ImportError:
+        pass
     print("type a learning outcome and press enter; an empty line quits")
     while True:
         try:
-            text = input("\noutcome> ").strip()
+            text = clean(input("\noutcome> "))
         except (EOFError, KeyboardInterrupt):
             print()
             break
         if not text:
             break
-        linker.show(text, args.k)
+        try:
+            linker.show(text, args.k)
+        except Exception as exc:  # noqa: BLE001
+            # One bad query should not end a session that took 25 s to load.
+            print(f"\n  could not process that outcome: {exc}")
 
 
 if __name__ == "__main__":
