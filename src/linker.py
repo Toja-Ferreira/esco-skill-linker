@@ -49,8 +49,9 @@ RERANK_TOP_K = 10
 CANDIDATE_WORDS = 40
 
 # ESCO's own names for its two concept types, in the query language.
-TYPE_NAME = {"pt": {"skill": "competência", "knowledge": "conhecimento"},
-             "en": {"skill": "skill", "knowledge": "knowledge"}}
+# ESCO's two concept types, used as section headings, query language first.
+TYPE_HEADING = {"pt": {"skill": "Competências", "knowledge": "Conhecimentos"},
+                "en": {"skill": "Skills", "knowledge": "Knowledge"}}
 
 
 def fusion_weight(lang: str) -> float:
@@ -188,14 +189,19 @@ class SkillLinker:
 
     def show(self, text: str, k: int = 10) -> None:
         uris, info = self.link(text, k)
-        print()
-        for i, u in enumerate(uris, start=1):
-            kind = "knowledge" if self.skill_type.get(u) == "knowledge" else "skill"
-            other_lang = "en" if self.lang == "pt" else "pt"
-            print(f"  {i:>2}. {self.label.get(u, u)}  "
-                  f"({TYPE_NAME[self.lang][kind]})")
-            print(f"      {self.other_label.get(u, '')}  "
-                  f"({TYPE_NAME[other_lang][kind]})")
+        other_lang = "en" if self.lang == "pt" else "pt"
+        # Grouped by type for reading; each keeps its overall rank, so the
+        # numbering still shows how the system ordered the full list.
+        for kind in ("skill", "knowledge"):
+            group = [(i, u) for i, u in enumerate(uris, start=1)
+                     if (self.skill_type.get(u) == "knowledge") == (kind == "knowledge")]
+            if not group:
+                continue
+            print(f"\n  {TYPE_HEADING[self.lang][kind]} / "
+                  f"{TYPE_HEADING[other_lang][kind]}")
+            for i, u in group:
+                print(f"  {i:>3}. {self.label.get(u, u)} / "
+                      f"{self.other_label.get(u, '')}")
         timing = f"retrieval {info['retrieval_s'] * 1000:.0f} ms"
         if "rerank_s" in info:
             timing += f", reranking {info['rerank_s']:.1f} s"

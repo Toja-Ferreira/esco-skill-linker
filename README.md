@@ -519,31 +519,25 @@ python -m src.linker --lang pt --rerank deepseek
 The first of those, without reranking:
 
 ```
-   1. utilizar aprendizagem por máquina  (competência)
-      utilise machine learning  (skill)
-   2. ciência dos dados  (conhecimento)
-      data science  (knowledge)
-   3. aprendizagem automática  (conhecimento)
-      machine learning  (knowledge)
-   4. aplicar técnicas de análise estatística  (competência)
-      apply statistical analysis techniques  (skill)
-   5. efetuar redução de dimensionalidade  (competência)
-      perform dimensionality reduction  (skill)
-   6. testar sensores  (competência)
-      test sensors  (skill)
-   7. análise de dados  (conhecimento)
-      data mining  (knowledge)
-   8. tecnologia de gémeos digitais  (conhecimento)
-      digital twin technology  (knowledge)
-   9. leitura de contador automático  (conhecimento)
-      automatic meter reading  (knowledge)
-  10. fazer modelo de simulação de sensores  (competência)
-      model sensor  (skill)
+  Competências / Skills
+    1. utilizar aprendizagem por máquina / utilise machine learning
+    4. aplicar técnicas de análise estatística / apply statistical analysis techniques
+    5. efetuar redução de dimensionalidade / perform dimensionality reduction
+    6. testar sensores / test sensors
+   10. fazer modelo de simulação de sensores / model sensor
+
+  Conhecimentos / Knowledge
+    2. ciência dos dados / data science
+    3. aprendizagem automática / machine learning
+    7. análise de dados / data mining
+    8. tecnologia de gémeos digitais / digital twin technology
+    9. leitura de contador automático / automatic meter reading
 ```
 
 ESCO types each concept as a *skill* (*competência*), something a person does, or *knowledge*
 (*conhecimento*), something a person knows, which maps onto how learning outcomes are usually
-written. Each result shows its label and type in both languages, query language first.
+written. Results are grouped by type, each label shown in both languages, and each keeps its rank in
+the full list.
 
 Without a learning outcome it starts an interactive prompt, so the indexes and models load once
 and each further query costs only its own retrieval. Every result shows the skill's label in
