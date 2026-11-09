@@ -20,6 +20,11 @@ not.
 | 12 | Shape of the residual language gap | [`residual_gap.md`](residual_gap.md) | [`experiments/12_residual_gap.py`](../experiments/12_residual_gap.py) |
 | 13 | Hybrid and bilingual fusion | [`fusion.md`](fusion.md) | [`experiments/13_fusion.py`](../experiments/13_fusion.py) |
 | 14 | Cross-encoder reranking, and the ordering ceiling | [`rerank.md`](rerank.md), [`rerank_qwen3-0.6b.md`](rerank_qwen3-0.6b.md) | [`experiments/14_rerank.py`](../experiments/14_rerank.py) |
+| 15 | Listwise LLM reranking, local and API | [`llm_rerank_qwen3-4b-local.md`](llm_rerank_qwen3-4b-local.md), [`llm_rerank_deepseek.md`](llm_rerank_deepseek.md) | [`experiments/15_llm_rerank.py`](../experiments/15_llm_rerank.py) |
+| 16 | Local against API, per query | [`llm_compare.md`](llm_compare.md) | [`experiments/16_llm_compare.py`](../experiments/16_llm_compare.py) |
+
+Figures in [`figures/`](figures/) are drawn from these result files by
+[`experiments/make_figures.py`](../experiments/make_figures.py).
 
 Also here: [`dataset_profile.md`](dataset_profile.md) and
 [`split_profile.md`](split_profile.md), describing the release and the frozen
@@ -29,30 +34,40 @@ evaluation split.
 
 608 held-out occupation descriptions against all 13,939 skills, nDCG@10.
 
-The headline number is not the most important one here. Experiment 14 measures
-what a flawless reranker would reach over the same top-100 candidates: **0.797
-Portuguese and 0.821 English**, more than double the best system. The shortlist
-already contains a correct skill in its top 10 for roughly 91% of queries. The
-unsolved problem is ordering, not retrieval.
+Experiment 14 measures what a flawless reranker would reach over the same
+top-100 candidates: **0.797 Portuguese and 0.821 English**, more than double
+the best first stage. The shortlist already contains a correct skill in its top
+10 for roughly 91% of queries, so most of what is missing is ordering.
 
-| system | English | Portuguese | gap |
-|---|---:|---:|---:|
-| BM25, stemmed, stopwords removed | 0.3252 | 0.2659 | +22.3% |
-| Bi-encoder, `embeddinggemma-300m` | 0.3576 | 0.3284 | +8.9% |
-| **Hybrid, weighted score fusion** | **0.3794** | **0.3439** | +10.3% |
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="figures/systems_dark.svg">
+  <img alt="nDCG@10 per system and language, with the perfect-ordering ceilings at depth 20 and 100." src="figures/systems_light.svg">
+</picture>
 
-The recommended configuration is hybrid weighted score fusion, combining BM25
-with the bi-encoder in one language. Fusing all four runs, both methods in both
-languages, scores marginally higher at 0.3817 but is not distinguishable from it
-(paired difference +0.0023 [−0.0010, +0.0056]), so the simpler system is
-preferred.
+| system | English | Portuguese | gap | gap, relative |
+|---|---:|---:|---:|---:|
+| BM25, stemmed, stopwords removed | 0.3252 | 0.2658 | 0.0594 | +22.3% |
+| Bi-encoder, `embeddinggemma-300m` | 0.3576 | 0.3284 | 0.0291 | +8.9% |
+| Hybrid, weighted score fusion | 0.3794 | 0.3439 | 0.0355 | +10.3% |
+| Hybrid, reranked by Qwen3-4B (local) | 0.4149 | 0.3788 | 0.0361 | +9.5% |
+| **Hybrid, reranked by DeepSeek (API)** | **0.4460** | **0.4119** | 0.0341 | +8.3% |
 
-Recall@10 is capped at 0.543 on this split, so the leading figure of 0.155 is
-29% of what is reachable.
+The best system is hybrid weighted score fusion followed by listwise reranking
+of the top 20 with DeepSeek's API model, which costs about $0.0002 per
+description. Where a paid API is not an option, the same reranking with a local
+Qwen3-4B keeps about half the gain at no per-query cost and reproduces exactly.
+Without an LLM, the recommended configuration is hybrid fusion in one language.
+Fusing all four runs, both methods in both languages, scores marginally higher
+at 0.3817 but is not distinguishable from it (paired difference +0.0023
+[−0.0010, +0.0056]), so the simpler system is preferred.
 
-Two things the headline table does not show. Dense retrieval closed 60% of the
-lexical language gap by compressing a tail of failing Portuguese queries, and
-fusion then widened it again, because lexical retrieval helps English more.
+Recall@10 is capped at 0.543 on this split, so the hybrid's 0.155 is 29% of
+what is reachable.
+
+What the headline table does not show: dense retrieval closed about half of the
+lexical language gap by compressing a tail of failing Portuguese queries, fusion
+then widened it again because lexical retrieval helps English more, and no
+reranker moved it afterwards.
 
 ---
 
@@ -66,6 +81,12 @@ reachable.
 | k | 1 | 3 | 5 | 10 | 20 | 50 |
 |---|---:|---:|---:|---:|---:|---:|
 | max recall@k | 0.056 | 0.167 | 0.278 | 0.543 | 0.856 | 0.993 |
+
+**Arrows and bold.** ▲ and ▼ mark a change in retrieval quality against the
+baseline the table names. Where a paired interval is given, the arrow appears
+only when the interval excludes zero, so a change with no arrow is not
+distinguishable from noise. Language gaps carry no arrow. Bold marks the best
+value in a comparison.
 
 **Precision and MRR answer different questions.** The best English run has P@10
 of 0.270, so most of what it shows is wrong, alongside MRR of 0.678, meaning the
@@ -88,8 +109,8 @@ index and does nothing measurable for Portuguese:
 
 | | preferred | plus alt labels | change | tokens/doc |
 |---|---:|---:|---:|---|
-| pt, raw | 0.163 | 0.162 | −0.5% | 4.9 to 6.1 |
-| en, raw | 0.189 | 0.227 | +20.1% | 3.6 to 29.3 |
+| pt, raw | 0.163 | 0.162 | ▼ −0.5% | 4.9 to 6.1 |
+| en, raw | 0.189 | 0.227 | ▲ +20.1% | 3.6 to 29.3 |
 
 English documents grow eightfold. Portuguese documents grow by roughly one
 token, because only 8% of Portuguese skills carry any alternative label. The
@@ -119,10 +140,10 @@ Relative nDCG@10 gain from stemming, before stopword removal:
 
 | variant | pt | en |
 |---|---:|---:|
-| preferred | +13.5% | +23.3% |
-| labels | +13.5% | +11.6% |
-| labels_desc | +6.9% | +5.7% |
-| description | +10.6% | +12.3% |
+| preferred | ▲ +13.5% | ▲ +23.3% |
+| labels | ▲ +13.5% | ▲ +11.6% |
+| labels_desc | ▲ +6.9% | ▲ +5.7% |
+| description | ▲ +10.6% | ▲ +12.3% |
 
 Portuguese is the more heavily inflected language, so the expectation was that it
 would gain more. On `preferred`, where a single stem match carries most of the
@@ -337,14 +358,14 @@ Relative nDCG@10 gain from removing stopwords:
 
 | documents | stemming | pt | en |
 |---|---|---:|---:|
-| preferred | raw | +35.0% | +33.6% |
-| preferred | stemmed | +26.7% | +24.3% |
-| labels | raw | +36.4% | +20.4% |
-| labels | stemmed | +29.1% | +14.2% |
-| labels_desc | raw | +8.9% | +6.2% |
-| labels_desc | stemmed | +7.4% | +5.1% |
-| description | raw | +13.4% | +7.5% |
-| description | stemmed | +10.2% | +4.7% |
+| preferred | raw | ▲ +35.0% | ▲ +33.6% |
+| preferred | stemmed | ▲ +26.7% | ▲ +24.3% |
+| labels | raw | ▲ +36.4% | ▲ +20.4% |
+| labels | stemmed | ▲ +29.1% | ▲ +14.2% |
+| labels_desc | raw | ▲ +8.9% | ▲ +6.2% |
+| labels_desc | stemmed | ▲ +7.4% | ▲ +5.1% |
+| description | raw | ▲ +13.4% | ▲ +7.5% |
+| description | stemmed | ▲ +10.2% | ▲ +4.7% |
 
 Portuguese gains more in every case. On `description` stemmed, more than twice
 as much.
@@ -419,7 +440,7 @@ stopwords removed.
 | language | selected | dev nDCG@10 | test tuned | test default | gain |
 |---|---|---:|---:|---:|---:|
 | pt | k1=1.8, b=0.75 | 0.2802 | 0.2658 | 0.2658 | 0.0% |
-| en | k1=2.1, b=1.0 | 0.3356 | 0.3273 | 0.3252 | +0.7% |
+| en | k1=2.1, b=1.0 | 0.3356 | 0.3273 | 0.3252 | ▲ +0.7% |
 
 Both gains sit far inside the confidence intervals. The library defaults were
 already essentially optimal for this corpus.
@@ -611,12 +632,12 @@ dev split decided.
 
 | model | lang | documents | nDCG@10 | 95% CI | MRR | vs BM25 |
 |---|---|---|---:|---|---:|---:|
-| embeddinggemma | en | labels_desc | 0.3576 | [0.3419, 0.3744] | 0.678 | +10.0% |
-| qwen3-4b | en | preferred | 0.3203 | [0.3038, 0.3361] | 0.604 | −1.5% |
-| e5-base | en | labels_desc | 0.3145 | [0.2987, 0.3307] | 0.634 | −3.3% |
-| embeddinggemma | pt | labels_desc | 0.3284 | [0.3122, 0.3448] | 0.640 | +23.5% |
-| qwen3-4b | pt | preferred | 0.3026 | [0.2862, 0.3185] | 0.567 | +13.8% |
-| e5-base | pt | labels_desc | 0.2630 | [0.2466, 0.2784] | 0.551 | −1.1% |
+| embeddinggemma | en | labels_desc | 0.3576 | [0.3419, 0.3744] | 0.678 | ▲ +10.0% |
+| qwen3-4b | en | preferred | 0.3203 | [0.3038, 0.3361] | 0.604 | ▼ −1.5% |
+| e5-base | en | labels_desc | 0.3145 | [0.2987, 0.3307] | 0.634 | ▼ −3.3% |
+| embeddinggemma | pt | labels_desc | 0.3284 | [0.3122, 0.3448] | 0.640 | ▲ +23.5% |
+| qwen3-4b | pt | preferred | 0.3026 | [0.2862, 0.3185] | 0.567 | ▲ +13.8% |
+| e5-base | pt | labels_desc | 0.2630 | [0.2466, 0.2784] | 0.551 | ▼ −1.1% |
 
 ### Dense retrieval closes most of the language gap
 
@@ -627,9 +648,10 @@ dev split decided.
 | embeddinggemma | 0.3284 | 0.3576 | +8.9% |
 | qwen3-4b | 0.3026 | 0.3203 | +5.9% |
 
-This answers the project's central question. EmbeddingGemma removes 60% of the
-lexical language gap, from 22.3% to 8.9%, and removes it asymmetrically:
-Portuguese gains 23.5% over BM25 while English gains 10.0%.
+This answers the project's central question. EmbeddingGemma removes about half
+of the lexical language gap: 51% in absolute nDCG@10, from 0.059 to 0.029, or
+60% measured as a relative gap, from 22.3% to 8.9%. It removes it
+asymmetrically: Portuguese gains 23.5% over BM25 while English gains 10.0%.
 
 Qwen3 shows the smallest gap at 5.9%, a 74% reduction, but that is not the
 better result. It is worse than EmbeddingGemma in both languages, 0.3203 against
@@ -723,14 +745,14 @@ themselves under EmbeddingGemma:
 
 | lang | BM25 quartile | BM25 | dense | change | improved |
 |---|---|---:|---:|---:|---:|
-| pt | Q1 worst | 0.0320 | 0.1830 | +0.1510 | 80% |
-| pt | Q2 | 0.1743 | 0.2634 | +0.0891 | 68% |
-| pt | Q3 | 0.3226 | 0.3668 | +0.0442 | 59% |
-| pt | Q4 best | 0.5344 | 0.5005 | −0.0339 | 44% |
-| en | Q1 worst | 0.0618 | 0.1831 | +0.1213 | 75% |
-| en | Q2 | 0.2434 | 0.2954 | +0.0520 | 62% |
-| en | Q3 | 0.3946 | 0.4036 | +0.0090 | 48% |
-| en | Q4 best | 0.6008 | 0.5481 | −0.0528 | 35% |
+| pt | Q1 worst | 0.0320 | 0.1830 | ▲ +0.1510 | 80% |
+| pt | Q2 | 0.1743 | 0.2634 | ▲ +0.0891 | 68% |
+| pt | Q3 | 0.3226 | 0.3668 | ▲ +0.0442 | 59% |
+| pt | Q4 best | 0.5344 | 0.5005 | ▼ −0.0339 | 44% |
+| en | Q1 worst | 0.0618 | 0.1831 | ▲ +0.1213 | 75% |
+| en | Q2 | 0.2434 | 0.2954 | ▲ +0.0520 | 62% |
+| en | Q3 | 0.3946 | 0.4036 | ▲ +0.0090 | 48% |
+| en | Q4 best | 0.6008 | 0.5481 | ▼ −0.0528 | 35% |
 
 Monotonic in both languages, and the same shape holds for Qwen3 and for
 e5-base, which loses overall while still gaining +0.106 in the Portuguese
@@ -859,15 +881,15 @@ is on the per-query difference against the stronger of the runs being combined.
 | combination | fusion | fused | gain over better input | paired difference (95% CI) |
 |---|---|---:|---:|---|
 | hybrid pt | rrf | 0.3271 | −0.4% | −0.0013 [−0.0103, +0.0080] |
-| hybrid en | rrf | 0.3684 | +3.0% | +0.0108 [+0.0020, +0.0196] |
+| hybrid en | rrf | 0.3684 | +3.0% | ▲ +0.0108 [+0.0020, +0.0196] |
 | bilingual gemma | rrf | 0.3563 | −0.4% | −0.0013 [−0.0077, +0.0051] |
 | bilingual bm25 | rrf | 0.3194 | −1.8% | −0.0058 [−0.0138, +0.0026] |
 | all four | rrf | 0.3637 | +1.7% | +0.0061 [−0.0033, +0.0158] |
-| hybrid pt | wsf | 0.3439 | +4.7% | +0.0155 [+0.0097, +0.0211] |
-| **hybrid en** | **wsf** | **0.3794** | **+6.1%** | **+0.0218 [+0.0152, +0.0287]** |
-| bilingual gemma | wsf | 0.3647 | +2.0% | +0.0071 [+0.0028, +0.0115] |
-| bilingual bm25 | wsf | 0.3295 | +1.3% | +0.0044 [+0.0007, +0.0082] |
-| **all four** | **wsf** | **0.3817** | **+6.8%** | **+0.0241 [+0.0173, +0.0310]** |
+| hybrid pt | wsf | 0.3439 | +4.7% | ▲ +0.0155 [+0.0097, +0.0211] |
+| **hybrid en** | **wsf** | **0.3794** | **+6.1%** | **▲ +0.0218 [+0.0152, +0.0287]** |
+| bilingual gemma | wsf | 0.3647 | +2.0% | ▲ +0.0071 [+0.0028, +0.0115] |
+| bilingual bm25 | wsf | 0.3295 | +1.3% | ▲ +0.0044 [+0.0007, +0.0082] |
+| **all four** | **wsf** | **0.3817** | **+6.8%** | **▲ +0.0241 [+0.0173, +0.0310]** |
 
 Only one of five rank-fusion combinations clears zero. `all four` under RRF looks
 like a +1.7% gain but its interval spans zero and it wins on exactly 50% of
@@ -887,8 +909,8 @@ paired comparisons:
 | a | b | a | b | difference (95% CI) | a wins |
 |---|---|---:|---:|---|---:|
 | all four (wsf) | hybrid en (wsf) | 0.3817 | 0.3794 | +0.0023 [−0.0010, +0.0056] | 42% |
-| all four (wsf) | hybrid en (rrf) | 0.3817 | 0.3684 | +0.0133 [+0.0082, +0.0182] | 51% |
-| hybrid en (wsf) | bilingual gemma (wsf) | 0.3794 | 0.3647 | +0.0147 [+0.0074, +0.0215] | 55% |
+| all four (wsf) | hybrid en (rrf) | 0.3817 | 0.3684 | ▲ +0.0133 [+0.0082, +0.0182] | 51% |
+| hybrid en (wsf) | bilingual gemma (wsf) | 0.3794 | 0.3647 | ▲ +0.0147 [+0.0074, +0.0215] | 55% |
 | hybrid en (rrf) | bilingual gemma (wsf) | 0.3684 | 0.3647 | +0.0037 [−0.0054, +0.0124] | 51% |
 
 `all four` scores higher than `hybrid en` but the difference spans zero and it
@@ -933,7 +955,7 @@ the best fused system leans heavily on the English one.
 
 | system | en | pt | gap |
 |---|---:|---:|---:|
-| BM25 | 0.3252 | 0.2659 | +22.3% |
+| BM25 | 0.3252 | 0.2658 | +22.3% |
 | EmbeddingGemma | 0.3576 | 0.3284 | +8.9% |
 | hybrid, wsf | 0.3794 | 0.3439 | +10.3% |
 
@@ -980,7 +1002,7 @@ subsample, applied once to test.
 |---|---|---:|---:|---:|---|---:|
 | bge-m3 | pt | 0.3439 | 0.3482 | +1.2% | +0.0042 [−0.0043, +0.0132] | 49% |
 | bge-m3 | en | 0.3794 | 0.3793 | −0.0% | −0.0001 [−0.0056, +0.0051] | 46% |
-| qwen3-0.6b | pt | 0.3439 | 0.3351 | −2.6% | **−0.0088 [−0.0141, −0.0033]** | 41% |
+| qwen3-0.6b | pt | 0.3439 | 0.3351 | −2.6% | ▼ −0.0088 [−0.0141, −0.0033] | 41% |
 | qwen3-0.6b | en | 0.3794 | 0.3746 | −1.3% | −0.0048 [−0.0098, +0.0009] | 43% |
 
 bge-m3 does nothing: both intervals span zero. Qwen3 is significantly worse
@@ -1073,7 +1095,7 @@ Portuguese and 116% in English**. Share of that headroom captured:
 | checkpoint | pt | en |
 |---|---:|---:|
 | bge-m3 | +2.0% | −0.1% |
-| qwen3-0.6b | −10.1% | −5.6% |
+| qwen3-0.6b | ▼ −10.1% | −5.6% |
 
 That distinction matters. "Reranking did not help" and "there is nothing left to
 gain from reranking" look identical in the headline number and point at
@@ -1091,23 +1113,29 @@ The measured MRR is 0.654 and 0.700, and both rerankers lowered it further, to
 The system finds correct answers and fails to put them first. For an interface
 showing a teacher a handful of suggestions, that is the gap that matters.
 
-### Most of the residual language gap is ordering, not retrieval
+### About a third of the residual language gap is ordering
 
-| | pt | en | gap |
-|---|---:|---:|---:|
-| first stage | 0.3439 | 0.3794 | +10.3% |
-| oracle @10 | 0.4307 | 0.4648 | +7.9% |
-| oracle @20 | 0.5540 | 0.5932 | +7.1% |
-| oracle @50 | 0.7066 | 0.7342 | +3.9% |
-| oracle @100 | 0.7968 | 0.8212 | +3.1% |
+| | pt | en | gap | gap, relative | share of gap removed |
+|---|---:|---:|---:|---:|---:|
+| first stage | 0.3439 | 0.3794 | 0.0355 | +10.3% | |
+| oracle @10 | 0.4307 | 0.4648 | 0.0341 | +7.9% | 4% |
+| oracle @20 | 0.5540 | 0.5932 | 0.0393 | +7.1% | none |
+| oracle @50 | 0.7066 | 0.7342 | 0.0276 | +3.9% | 22% |
+| oracle @100 | 0.7968 | 0.8212 | 0.0244 | +3.1% | 31% |
 
 This speaks directly to the residual experiment 12 left unexplained. The
 Portuguese shortlist contains nearly as much gold as the English one, recall@100
-of 0.361 against 0.388, a 7.5% difference. Give both perfect ordering and the
-nDCG gap falls from 10.3% to 3.1%.
+of 0.361 against 0.388, a 7.5% difference. Give both perfect ordering of the top
+100 and the absolute gap falls from 0.0355 to 0.0244, removing 31% of it.
 
-So what survived dense retrieval is largely a ranking failure rather than a
-retrieval failure. Portuguese candidates are being found and then ordered worse.
+**Correction.** This section originally said most of the residual gap was
+ordering, because the relative gap falls from 10.3% to 3.1%. That reading was
+wrong. Perfect ordering more than doubles both scores, so the relative gap
+shrinks even where the distance between the languages barely moves. In absolute
+terms ordering accounts for about a third of the residual, and only with a
+shortlist of 50 or more: at a depth of 20, perfect ordering leaves the gap
+slightly wider than the first stage's. Experiment 15 confirms this from the
+other side.
 
 ### Cost
 
@@ -1125,8 +1153,8 @@ nothing is precomputed and cost scales directly with depth.
 
 ### What this experiment concludes
 
-Reranking is not worth its cost on this task, and the reason is specific rather
-than general. The rerankers work: they separate gold from non-gold well above
+Cross-encoder reranking is not worth its cost on this task, and the reason is
+specific rather than general. The rerankers work: they separate gold from non-gold well above
 chance and reproduce 82% to 103% of the first stage's ordering quality. They
 simply do not improve on a hybrid fusion that was already tuned on dev, while
 adding 20 to 140 ms per query.
@@ -1134,6 +1162,161 @@ adding 20 to 140 ms per query.
 Meanwhile the oracle says perfect ordering of the same candidates would more
 than double the score. The ordering problem is large, real, and untouched by
 off-the-shelf cross-encoders.
+
+---
+
+## 15: Listwise LLM reranking, local and API
+
+The cross-encoders in experiment 14 score each candidate on its own, so the best
+they can do is reproduce the first stage's ordering. A listwise reranker gets
+the occupation description and the whole shortlist in one prompt and returns the
+numbers of the 10 best candidates, so it can compare candidates against each
+other, which is the operation the oracle's headroom requires.
+
+The model answers with candidate numbers, never skill names, so a malformed
+response is an out-of-range number, a repeat or an omission, and each is
+counted. Candidates the model leaves out keep their first-stage order below the
+ones it ranked.
+
+Two models run behind the same interface: `Qwen3-4B-Instruct-2507` on a local
+12 GB GPU, and DeepSeek through its API. DeepSeek is the model the 2024 thesis
+used for this stage. `deepseek-chat` is an alias the provider repoints, and the
+run reported here was served by `deepseek-flash` on 9 November 2026.
+
+Depth was chosen on 200 dev queries between shortlists of 10 and 20. A depth of
+50 crashed the local machine even at batch size 2, so it was not tested.
+
+### Results
+
+| language | first stage | Qwen3-4B | DeepSeek | bge-m3 (exp. 14) |
+|---|---:|---:|---:|---:|
+| pt | 0.3439 | 0.3788 (▲ +10.1%) | **0.4119 (▲ +19.8%)** | 0.3482 |
+| en | 0.3794 | 0.4149 (▲ +9.4%) | **0.4460 (▲ +17.6%)** | 0.3793 |
+
+nDCG@10 on the 608 test queries. Dev selected depth 20 for both models in both
+languages. Paired against the first stage, Qwen gains +0.0349 [+0.0266,
++0.0440] in Portuguese and +0.0355 [+0.0274, +0.0448] in English; DeepSeek's
+paired intervals are in [`llm_rerank_deepseek.md`](llm_rerank_deepseek.md), and
+its margin over Qwen is tested directly in experiment 16.
+
+Selection on dev did not overfit. Qwen's gain went from +10.6% on dev to +10.1%
+on test in Portuguese and from +6.8% to +9.4% in English; DeepSeek's from +21.1%
+to +19.8% and from +15.5% to +17.6%.
+
+This is the first method in the project to improve on the tuned hybrid. Both
+models were given the same 20 candidates the cross-encoders saw, so the
+difference is in what the model does with them.
+
+### Headroom captured
+
+A reranker that sees 20 candidates cannot recover a skill ranked 21st, so the
+fair ceiling is the oracle at depth 20: 0.5540 in Portuguese, 0.5932 in English.
+
+| model | pt | en |
+|---|---:|---:|
+| Qwen3-4B | 17% | 17% |
+| DeepSeek | **32%** | **31%** |
+
+### Output reliability
+
+Neither model returned an unparsable response in either language. Qwen repeated
+or dropped a candidate in about one query in a hundred in Portuguese and never
+in English. DeepSeek's repair counts are in its generated file.
+
+### Reproducibility
+
+Qwen decodes greedily and reproduced its test scores exactly across runs at the
+same batch size. Batch size itself matters: it changes padding, and therefore
+fp16 rounding, which moved one dev figure from 0.3757 to 0.3756.
+
+DeepSeek is not deterministic at temperature 0. Two identical runs scored
+0.4120 and 0.4119 in Portuguese, 0.4445 and 0.4460 in English. That drift is
+about a twentieth of its lead over Qwen, so it does not affect any conclusion,
+but the exact figures cannot be reproduced.
+
+### A silent slowdown worth recording
+
+At depth 20 a batch of 8 prompts does not fit on a 12 GB card. Under WSL the
+driver does not raise an out-of-memory error; it moves the overflow into system
+RAM. Generation slowed from 0.92 s/query to over 6 running alone, and to 12.19
+alongside another job, with no error at all.
+`nvidia-smi` showed memory at 11.7 of 12.2 GB and the GPU at 43 W of 140 W,
+busy waiting for data. A batch of 4 fits, and is now the default.
+
+### Cost
+
+| model | s/query on test | money |
+|---|---:|---:|
+| Qwen3-4B, laptop RTX 5070 | 1.2 to 1.6 | none per query |
+| DeepSeek, 8 concurrent requests | 0.11 to 0.12 | $0.37 for the experiment |
+
+The $0.37 covers the whole experiment: 2,016 prompts across the dev sweep and
+the test split in both languages, about $0.0002 per description. Local timings
+varied between runs of identical work (0.94 and 1.63 s/query for the same
+Portuguese test split), so the speed ratio is approximate.
+
+Portuguese prompts are 55% to 60% longer in tokens than English ones under both
+tokenisers (784,547 against 504,227 for DeepSeek on test), so on a paid API
+Portuguese costs more per description. Longer Portuguese descriptions and
+English-centred tokenisers both contribute, and this experiment does not
+separate them.
+
+---
+
+## 16: Local against API, per query
+
+Both models reranked the same first stage at the same depth on the same 608
+queries, so the comparison is paired.
+
+| language | DeepSeek minus Qwen3-4B, nDCG@10 (95% CI) |
+|---|---|
+| pt | ▲ +0.0331 [+0.0266, +0.0393] |
+| en | ▲ +0.0311 [+0.0250, +0.0375] |
+
+DeepSeek is better in both languages, by about as much as Qwen gains over the
+first stage.
+
+### Neither model narrows the language gap
+
+Every occupation exists in both languages, so the gap can be measured per
+occupation, English minus Portuguese, and compared between systems as a
+difference of differences.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="figures/language_gap_dark.svg">
+  <img alt="English minus Portuguese nDCG@10 per system, with paired intervals for the hybrid and both rerankers, and the perfect-ordering gaps at depth 20 and 100." src="figures/language_gap_light.svg">
+</picture>
+
+| system | EN minus PT (95% CI) | relative |
+|---|---|---:|
+| first stage | +0.0355 [+0.0257, +0.0448] | +10.3% |
+| Qwen3-4B | +0.0361 [+0.0261, +0.0454] | +9.5% |
+| DeepSeek | +0.0341 [+0.0238, +0.0445] | +8.3% |
+
+| change in the gap | 95% CI |
+|---|---|
+| Qwen3-4B minus first stage | +0.0006 [−0.0094, +0.0107] |
+| DeepSeek minus first stage | −0.0014 [−0.0118, +0.0089] |
+| DeepSeek minus Qwen3-4B | −0.0020 [−0.0103, +0.0068] |
+
+The relative gap falls from 10.3% to 8.3% under DeepSeek, which reads like
+narrowing. In absolute terms the gap is unchanged: the same distance divided by
+a higher Portuguese score. The first reading of these results made exactly that
+mistake, and this experiment was written to test it.
+
+The null result is what experiment 14's oracle predicts. At depth 20, perfect
+ordering would not narrow the gap either.
+
+### What the two experiments conclude
+
+Paying bought quality as well as speed: about 0.03 nDCG@10 in both languages,
+roughly double the local model's gain over the first stage, at more than ten
+times the speed, for $0.37. The local model is free per query, reproduces
+exactly, and keeps course documentation on the institution's own hardware,
+which may matter more than the score in a university deployment.
+
+Neither changes the language gap. Whatever puts Portuguese behind English is
+already fixed by the time the shortlist reaches the reranker.
 
 ---
 
@@ -1161,8 +1344,9 @@ coverage.
 | Compressed score distribution | Not supported. Flatness identical (07) |
 | Terminology divergence in a tail of queries | Supported (07, 08), and confirmed by 10 and 11 |
 
-**Dense retrieval removes 60% of it, in the way the diagnosis predicted.** The
-gap falls from 22.3% to 8.9%, the Portuguese failure rate from 25.2% to 15.3%,
+**Dense retrieval removes about half of it, in the way the diagnosis
+predicted.** The gap falls from 22.3% to 8.9%, or from 0.059 to 0.029 nDCG@10 in
+absolute terms, the Portuguese failure rate from 25.2% to 15.3%,
 and the gains concentrate in exactly the queries where lexical matching failed.
 A method that had improved the mean while leaving the distribution shape
 unchanged would have been doing something else.
@@ -1174,10 +1358,14 @@ configuration and the most language-equitable one are not the same, which
 follows directly from the lexical diagnosis: bringing BM25 back in brings back
 the vocabulary-matching problem it carries.
 
-**The residual is largely an ordering failure.** Experiment 12 showed it is
+**About a third of the residual is ordering.** Experiment 12 showed it is
 uniform across the score distribution rather than concentrated in a tail, so the
-terminology explanation does not carry over. Experiment 14 locates it: the
-Portuguese shortlist contains nearly as much gold as the English one, recall@100
-of 0.361 against 0.388, and under perfect ordering of that shortlist the nDCG
-gap falls from 10.3% to 3.1%. Portuguese candidates are being retrieved and then
-ranked worse, which is a different problem from being missed.
+terminology explanation does not carry over. Experiment 14 finds the Portuguese
+shortlist contains nearly as much gold as the English one, recall@100 of 0.361
+against 0.388, and perfect ordering of the top 100 removes 31% of the absolute
+gap. The rest is unexplained.
+
+**LLM reranking lifts both languages by the same amount.** Listwise reranking is
+the only reranking method here that beats the first stage, by about 10% with a
+local 4B model and 18% to 20% with DeepSeek. Neither moves the gap, and at the
+depth they work at, the oracle says no reranker could.

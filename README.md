@@ -6,8 +6,9 @@ how well different retrieval approaches do it.
 
 Portuguese-focused, evaluated against English as the comparison language.
 
-> **Status:** benchmark frozen, lexical, dense, fusion and reranking scored, fourteen
-> experiments recorded. Full findings in [`results/README.md`](results/README.md).
+> **Status:** complete. Benchmark frozen; lexical, dense, fusion, cross-encoder and LLM
+> reranking scored across sixteen experiments. Full findings in
+> [`results/README.md`](results/README.md).
 
 ## Results so far
 
@@ -30,29 +31,60 @@ queries where lexical matching failed.
 
 608 held-out occupation descriptions against all 13,939 skills:
 
-| method | English | Portuguese | gap |
-|---|---:|---:|---:|
-| BM25, stemmed, stopwords removed | 0.325 | 0.266 | +22.3% |
-| Bi-encoder, EmbeddingGemma-300M | 0.358 | 0.328 | +8.9% |
-| **Hybrid, weighted score fusion** | **0.379** | **0.344** | +10.3% |
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="results/figures/systems_dark.svg">
+  <img alt="nDCG@10 per system and language. Scores rise from BM25 through dense retrieval and fusion; the cross-encoder adds nothing, Qwen3-4B adds about 10% and DeepSeek about 19%. Perfect ordering of the same shortlist would reach about 0.80." src="results/figures/systems_light.svg">
+</picture>
 
-nDCG@10. Dense retrieval removes 60% of the language gap, and does so asymmetrically:
-Portuguese gains 23.5% where English gains 10.0%. A study reporting only a pooled figure across
+| method | English | Portuguese | gap | gap, relative |
+|---|---:|---:|---:|---:|
+| BM25, stemmed, stopwords removed | 0.325 | 0.266 | 0.059 | +22.3% |
+| Bi-encoder, EmbeddingGemma-300M | 0.358 | 0.328 | 0.029 | +8.9% |
+| Hybrid, weighted score fusion | 0.379 | 0.344 | 0.036 | +10.3% |
+| Hybrid, reranked by Qwen3-4B (local) | 0.415 | 0.379 | 0.036 | +9.5% |
+| **Hybrid, reranked by DeepSeek (API)** | **0.446** | **0.412** | 0.034 | +8.3% |
+
+nDCG@10. The gap is English minus Portuguese. Both columns matter: a relative gap shrinks
+whenever both languages improve, even if the distance between them stays the same.
+
+Dense retrieval removes about half of the language gap (51% in absolute terms, 60% as a
+relative gap), and does so asymmetrically: Portuguese gains 23.5% where English gains 10.0%. A study reporting only a pooled figure across
 languages would have called that a modest 10% improvement and missed what it was doing.
 
 Combining lexical with dense retrieval adds another 6% on top, but widens the language gap
 again, because BM25 helps English more than Portuguese. The best-performing system is not the
 most language-equitable one.
 
-The bottleneck has since moved. A flawless reranker over the same top-100 candidates would
-reach 0.797 in Portuguese and 0.821 in English, more than double the best system, and a correct
-skill already sits in the top 10 for roughly 91% of queries. Two off-the-shelf multilingual
-cross-encoders captured none of that headroom. They are not broken and not blind: both separate
-correct from incorrect candidates well above chance and reproduce 82% to 103% of the ordering
-quality the retrieval stage already achieves. They simply do not improve on it, while costing
-20 to 140 ms per query against under one. The unsolved problem is ordering rather than
-retrieval, and most of the remaining language gap is ordering too: under perfect ranking of the
-same shortlist it falls from 10.3% to 3.1%.
+After fusion the bottleneck moved to ordering. A flawless reranker over the same top-100
+candidates would reach 0.797 in Portuguese and 0.821 in English, more than double the best
+first stage, and a correct skill already sits in the top 10 for roughly 91% of queries. Two
+off-the-shelf multilingual cross-encoders captured none of that headroom. Both separate correct
+from incorrect candidates well above chance and reproduce 82% to 103% of the first stage's
+ordering quality, so they work, but they never improve on it, while costing 20 to 140 ms per
+query against under one.
+
+Listwise LLM reranking does improve on it. The model sees the description and all 20 top
+candidates in one prompt and picks the best 10, so it can compare candidates against each
+other, which a cross-encoder scoring one pair at a time cannot. A local Qwen3-4B adds about 10%
+in both languages. DeepSeek's API model (`deepseek-flash`) adds 18% to 20%, beats the local
+model on the same queries by about 0.03 nDCG@10 in both languages, and captures about a third
+of the headroom available at that depth against the local model's sixth. The whole experiment,
+about 2,000 reranked descriptions, cost $0.37 and ran more than ten times faster than the local
+model on a laptop GPU. Paying bought quality as well as speed. What the local model offers in
+return is reproducibility: it gave identical scores on a rerun, where the API moved by up to
+0.0015.
+
+No reranker narrowed the language gap. English leads by about 0.035 nDCG@10 before reranking
+and after either model, and the paired intervals on the change all include zero. The oracle
+predicts this: at a depth of 20 even perfect ordering would leave the gap as it is, and
+perfect ordering of the full top 100 would remove only about a third of it. An earlier version
+of this README said most of the remaining gap was an ordering problem. That came from comparing
+relative gaps at very different score levels, and the absolute figures do not support it.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="results/figures/language_gap_dark.svg">
+  <img alt="English minus Portuguese nDCG@10 per system. The gap halves from BM25 to dense retrieval, then stays near 0.035 through fusion and both rerankers, with overlapping intervals. Perfect ordering of the top 20 would not shrink it; of the top 100, it would fall to 0.024." src="results/figures/language_gap_light.svg">
+</picture>
 
 Three results worth noting alongside. A 308M model beat a 4B one in both languages, and
 `multilingual-e5-base` lost to BM25 in both, so the checkpoint matters more than the
@@ -92,11 +124,11 @@ So the question became:
 
 > **How much of a vocabulary mismatch penalty does multilingual dense retrieval remove?**
 
-Answered in [experiments 10 and 11](results/README.md): 60% of it, and by compressing the tail
-of failing queries rather than by improving retrieval generally. That is a concrete argument
-for dense methods wherever a classification has been translated rather than authored in the
-target language, which is the situation for 27 of ESCO's 28 languages. An 8.9% gap survives and
-is currently unexplained.
+Answered in [experiments 10 and 11](results/README.md): about half of it, and by compressing
+the tail of failing queries rather than by improving retrieval generally. That is a concrete
+argument for dense methods wherever a classification has been translated rather than authored
+in the target language, which is the situation for 27 of ESCO's 28 languages. The rest of the
+gap survives every later method, including both LLM rerankers, and remains unexplained.
 
 A second question follows from the deployment setting. Because course documentation exists in
 both languages, the practical question is not which language is better but whether using both
@@ -349,17 +381,14 @@ Each scored on the same frozen split, with latency and cost recorded alongside q
 
 1. **BM25** over labels and descriptions, the floor any semantic method must clear
 2. **Bi-encoder**, several multilingual checkpoints
-3. **Late interaction**, ColBERT-style, one vector per token rather than per concept
-4. **Cross-encoder reranking** over a shortlist from the best first-stage method
-5. **Hybrid** lexical and dense score fusion
-6. **Bilingual fusion**, combining the Portuguese and English ranked lists for the same course unit
-7. **LLM reranking**, judged against the cheaper alternatives on quality, latency and cost
+3. **Hybrid** lexical and dense score fusion
+4. **Bilingual fusion**, combining the Portuguese and English ranked lists for the same course unit
+5. **Cross-encoder reranking** over a shortlist from the best first-stage method
+6. **Listwise LLM reranking**, a local model against a paid API, on quality, latency and cost
 
-Late interaction is placed early because it is diagnostic rather than merely another method. A
-bi-encoder compresses a whole concept into one vector, so a rare technical term contributes a
-small share of it and can be washed out. Keeping a vector per token lets a single term match on
-its own, which is the failure mode the results identify. If terminology divergence is the
-mechanism, this is the architecture most likely to address it.
+Late interaction (ColBERT-style, one vector per token) was planned and dropped. The oracle in
+experiment 14 shows the existing shortlist already supports nDCG@10 of about 0.80, so the
+bottleneck is ordering, and a different retriever would not address it.
 
 ### Why bilingual fusion
 
@@ -409,6 +438,16 @@ an analysis over existing runs rather than a separate retrieval pipeline.
   and has been corrected. Snowball's two stemmers remain different algorithms, and the corpora
   differ enough in scale that BM25's length normalisation and negative-IDF floor may not behave
   equivalently. Neither has been ruled out.
+- **The LLM rerankers may have seen the answers.** The gold labels are ESCO's own
+  occupation-to-skill links, which are published on the web and likely in both models'
+  training data. Part of the LLM gain could be recall of those links rather than judgement of
+  relevance. Larger models memorise more, so this weighs more on DeepSeek's result than on
+  Qwen's. The benchmark cannot separate the two.
+- **The API model is a moving target.** `deepseek-chat` is an alias the provider repoints; the
+  reported run was served by `deepseek-flash` on 9 November 2026. The API is also not
+  deterministic at temperature 0: two identical runs differed by up to 0.0015 nDCG@10, small
+  against its 0.03 lead over the local model, but enough that the figures cannot be reproduced
+  exactly.
 
 ## Repository layout
 
@@ -427,11 +466,27 @@ checkable against the run that produced them.
 
 ## Setup
 
+Python 3.12. Developed on a 12 GB RTX 5070 laptop GPU under WSL2.
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+python -c "import nltk; nltk.download('stopwords')"
 ```
+
+Two parts need access set up beforehand:
+
+- **Dense retrieval (10 onwards) uses EmbeddingGemma, a gated model.** Accept the Gemma terms
+  on the [model page](https://huggingface.co/google/embeddinggemma-300m), then log in with a
+  Hugging Face token: `hf auth login`.
+- **The API arm of experiment 15 needs a DeepSeek key** in `DEEPSEEK_API_KEY`. The local arm
+  needs no key, but at a shortlist depth of 20 it needs about 12 GB of GPU memory at batch
+  size 4.
+
+`requirements.txt` installs the default PyPI build of torch. The results were produced with the
+CUDA 13.2 build; to match it, install torch from [pytorch.org](https://pytorch.org/) before the
+requirements.
 
 ## Getting the data
 
@@ -455,6 +510,9 @@ source file.
   checkable.
 - **Metrics are reported per slice rather than pooled**, because a pooled average across
   languages is exactly what makes the existing published numbers hard to build on.
+- **Language gaps are reported in absolute as well as relative terms.** A relative gap shrinks
+  whenever both languages improve, so any claim that a method narrows the gap is checked against
+  the absolute difference, per query, with a paired interval.
 
 ## Related work by the author
 
@@ -464,6 +522,10 @@ keywords plus Sentence-Transformers embeddings with optional KMeans clustering, 
 shortlist, reranked by an LLM, validated against ESCO. It was evaluated by asking academic
 staff to rate outputs from three candidate pipelines, which was informative but not
 reproducible.
+
+That system reranked with DeepSeek. Experiment 15 measures that choice against a benchmark for
+the first time: listwise LLM reranking is the only reranking method here that improves on the
+first stage.
 
 This repository is a clean rebuild against public data with an automatic benchmark. No code
 carried over, no university data used.

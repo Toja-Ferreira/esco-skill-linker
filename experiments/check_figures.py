@@ -164,6 +164,69 @@ def main() -> None:
                 print(f"  {method:<16} {lang}  {base:.4f} -> {v:.4f}   "
                       f"{(base - v) / base:.1%} relative")
 
+    # Language gap, absolute and relative, for every system at its own score
+    # level. A relative gap shrinks whenever both scores rise, even if the
+    # distance between the languages does not move, so any claim that a
+    # system narrows the gap has to hold in the absolute column too.
+    systems: dict[str, dict[str, float]] = {}
+    if bm25:
+        systems["bm25"] = bm25
+    for key in ("qwen3-4b-local", "deepseek"):
+        p = RESULTS / f"llm_rerank_test_{key}.csv"
+        if not p.exists():
+            continue
+        d = pd.read_csv(p)
+        fs = d[d["stage"] == "first stage"].set_index("language")["ndcg@10"]
+        systems["first stage"] = fs.to_dict()
+        rr = d[d["stage"] == "llm reranked"].set_index("language")
+        systems[f"llm {key}"] = rr["ndcg@10"].to_dict()
+    oracle: dict[int, dict[str, float]] = {}
+    p = RESULTS / "rerank_test.csv"
+    if p.exists():
+        d = pd.read_csv(p)
+        for _, r in d[d["stage"] == "oracle"].iterrows():
+            oracle.setdefault(int(r["depth"]), {})[r["language"]] = r["ndcg@10"]
+        for depth, v in sorted(oracle.items()):
+            systems[f"oracle @{depth}"] = v
+
+    if systems:
+        section("Language gap, absolute and relative")
+        ref = systems.get("first stage")
+        for name, v in systems.items():
+            if "pt" not in v or "en" not in v:
+                continue
+            gap = v["en"] - v["pt"]
+            line = (f"  {name:<22} pt {v['pt']:.4f}  en {v['en']:.4f}  "
+                    f"abs {gap:+.4f}  rel {pct(v['en'], v['pt'])}")
+            # BM25 is an earlier stage, so "removed" relative to the hybrid
+            # would read as a meaningless negative.
+            if ref and name not in ("first stage", "bm25"):
+                ref_gap = ref["en"] - ref["pt"]
+                line += f"  abs gap removed vs first stage {1 - gap / ref_gap:+.1%}"
+            print(line)
+
+    if "first stage" in systems and oracle:
+        section("LLM reranking: gain and headroom captured at the same depth")
+        fs = systems["first stage"]
+        for key in ("qwen3-4b-local", "deepseek"):
+            p = RESULTS / f"llm_rerank_test_{key}.csv"
+            if not p.exists():
+                continue
+            d = pd.read_csv(p)
+            for _, r in d[d["stage"] == "llm reranked"].iterrows():
+                lang, depth = r["language"], int(r["depth"])
+                o = oracle.get(depth, {}).get(lang)
+                cap = ((r["ndcg@10"] - fs[lang]) / (o - fs[lang])
+                       if o is not None else float("nan"))
+                print(f"  {key:<16} {lang}  depth {depth}  "
+                      f"gain {pct(r['ndcg@10'], fs[lang])}  "
+                      f"captured {cap:.1%}")
+        a = systems.get("llm deepseek")
+        b = systems.get("llm qwen3-4b-local")
+        if a and b:
+            for lang in ("pt", "en"):
+                print(f"  deepseek over qwen  {lang}  {pct(a[lang], b[lang])}")
+
     print()
 
 
