@@ -71,6 +71,8 @@ lexical language gap by compressing a tail of failing Portuguese queries, fusion
 then widened it again because lexical retrieval helps English more, and no
 reranker moved it afterwards.
 
+{{sources}}
+
 ---
 
 ## Reading the numbers
@@ -95,6 +97,8 @@ of {{deepseek.test.en.p10:.3f}}, so most of what it shows is wrong, alongside MR
 first genuinely essential skill usually appears at rank 1 or 2 out of {{data.skills:,.0f}}
 candidates. Retrieval finds one correct skill easily and the full set poorly,
 and which of those matters depends on the interface.
+
+{{sources}}
 
 ---
 
@@ -200,6 +204,8 @@ No parameter tuning has been done in either language.
 {{bm25.ms_per_query.min:.0f}} to {{bm25.ms_per_query.max:.0f}} ms per query, index build at most {{bm25.build_s.max:.1f}} s, everything in memory. Any method
 costing materially more should be judged on quality per unit latency.
 
+{{sources}}
+
 ---
 
 ## 02: Quality by gold set size
@@ -255,6 +261,8 @@ Method behaviour is stable as gold sets shrink toward the target task, across
 the range this benchmark can test. Query length remains untested, since all
 queries here are full occupation descriptions.
 
+{{sources}}
+
 ---
 
 ## 03: How much vocabulary do queries share with their gold skills?
@@ -294,6 +302,8 @@ by {{overlap.pt.stem_vocab_shrink:.1%}} against {{overlap.en.stem_vocab_shrink:.
 
 So Portuguese shares as much vocabulary with its gold skills as English does,
 and still retrieves worse. Counting token types was the wrong measure.
+
+{{sources}}
 
 ---
 
@@ -340,6 +350,8 @@ translations of each other.
 This also explains why a frequency-derived stopword list would be the wrong
 instrument. Cutting each corpus's top N terms removes different grammatical
 categories in each language, rebuilding the asymmetry it is meant to remove.
+
+{{sources}}
 
 ---
 
@@ -420,6 +432,8 @@ three cheapest explanations, missing labels, translation drift, and preprocessin
 asymmetry, have each been tested and each accounts for only part or none of the
 effect.
 
+{{sources}}
+
 ---
 
 ## 06: Parameter sweep, and is the baseline fair?
@@ -488,6 +502,8 @@ rows differ for the already-known reason of alternative label coverage.
 
 So Portuguese descriptions are more lexically varied than English ones and still
 retrieve worse.
+
+{{sources}}
 
 ---
 
@@ -610,6 +626,8 @@ tail, and the tail is invisible to means.
 That is why experiments 03 and 09 found nothing while experiment 08 found
 something obvious. They were measuring different populations.
 
+{{sources}}
+
 ---
 
 ## 10: Bi-encoder retrieval
@@ -711,6 +729,8 @@ only the query is encoded at request time. The costs dense retrieval adds are a
 one-off indexing pass and a resident index, not per-request latency. Timings
 were taken on a shared GPU and should be treated as indicative.
 
+{{sources}}
+
 ---
 
 ## 11: Where the dense gain comes from
@@ -787,6 +807,8 @@ of its best. That is the precondition for score fusion working, and it is a
 stronger reason to try a hybrid than the usual observation that hybrids tend to
 help.
 
+{{sources}}
+
 ---
 
 ## 12: What is left of the language gap
@@ -858,6 +880,8 @@ Fusion remains worth measuring, because the headroom is real and the deployment
 setting supplies both texts at no extra cost. But the case for it is smaller
 than the earlier correlation figure implied, and it is now measured rather than
 inferred.
+
+{{sources}}
 
 ---
 
@@ -969,6 +993,8 @@ follows directly from the lexical diagnosis in experiments 01 to 09.
 For a Portuguese-only deployment the relevant number is different again: hybrid
 Portuguese at {{hybrid.test.pt.ndcg10:.4f}} is {{hybrid.gain_over_bm25.pt:.1%}} above the Portuguese lexical baseline, and is the
 best available without an English text.
+
+{{sources}}
 
 ---
 
@@ -1165,6 +1191,8 @@ Meanwhile the oracle says perfect ordering of the same candidates would more
 than double the score. The ordering problem is large, real, and untouched by
 off-the-shelf cross-encoders.
 
+{{sources}}
+
 ---
 
 ## 15: Listwise LLM reranking, local and API
@@ -1263,6 +1291,8 @@ Portuguese costs more per description. Longer Portuguese descriptions and
 English-centred tokenisers both contribute, and this experiment does not
 separate them.
 
+{{sources}}
+
 ---
 
 ## 16: Local against API, per query
@@ -1320,6 +1350,8 @@ which may matter more than the score in a university deployment.
 Neither changes the language gap. Whatever puts Portuguese behind English is
 already fixed by the time the shortlist reaches the reranker.
 
+{{sources}}
+
 ---
 
 ## Where this leaves the central question
@@ -1371,3 +1403,5 @@ gap. The rest is unexplained.
 the only reranking method here that beats the first stage, by about {{qwen.gain.mean:.0%}} with a
 local 4B model and {{deepseek.gain.en:.0%}} to {{deepseek.gain.pt:.0%}} with DeepSeek. Neither moves the gap, and at the
 depth they work at, the oracle says no reranker could.
+
+{{sources}}

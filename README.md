@@ -96,6 +96,8 @@ five.
 
 Full analysis in [`results/README.md`](results/README.md).
 
+Figures in this section come from [`rerank.md`](results/rerank.md), [`bi_encoder.md`](results/bi_encoder.md), [`bm25_stopwords.md`](results/bm25_stopwords.md), [`llm_rerank_deepseek.md`](results/llm_rerank_deepseek.md), [`llm_rerank_qwen3-4b-local.md`](results/llm_rerank_qwen3-4b-local.md), [`rerank_qwen3-0.6b.md`](results/rerank_qwen3-0.6b.md), [`fusion.md`](results/fusion.md), [`score_distribution.md`](results/score_distribution.md), [`dense_vs_lexical.md`](results/dense_vs_lexical.md), [`split_profile.md`](results/split_profile.md), [`dataset_profile.md`](results/dataset_profile.md), [`llm_compare.md`](results/llm_compare.md) and constants recorded in [`figure_sources.md`](results/figure_sources.md).
+
 ## The problem
 
 Course units are described in prose: learning outcomes, syllabus text, competence statements.
@@ -104,6 +106,8 @@ comparable across institutions, and usable for guidance and matching.
 
 The retrieval task: given a short free-text learning outcome, return the ESCO skill and
 knowledge concepts it corresponds to, from a candidate space of 13,939 concepts.
+
+Figures in this section come from [`dataset_profile.md`](results/dataset_profile.md).
 
 ## The central question
 
@@ -133,6 +137,8 @@ gap survives every later method, including both LLM rerankers, and remains unexp
 A second question follows from the deployment setting. Because course documentation exists in
 both languages, the practical question is not which language is better but whether using both
 beats using either.
+
+Figures in this section come from [`dataset_profile.md`](results/dataset_profile.md).
 
 ## Prior art
 
@@ -193,6 +199,8 @@ and per-language numbers reported separately.
 - Linking performed best in the native language, rather than via translation into English.
 - Language-proficiency skills were called out as a weak spot, which is why ESCO's
   language-skill concepts are treated as their own slice.
+
+Figures in this section are constants recorded in [`figure_sources.md`](results/figure_sources.md).
 
 ## Scope
 
@@ -318,6 +326,8 @@ that membership. `broaderRelationsSkillPillar`, `skillGroups` and `skillsHierarc
 relevant only for the abstraction experiment, and `skillSkillRelations` only for query
 expansion.
 
+Figures in this section come from [`dataset_profile.md`](results/dataset_profile.md).
+
 ## Benchmark design
 
 **Queries:** ESCO occupation descriptions.
@@ -376,6 +386,8 @@ ESCO assigns a stable URI per concept across all languages. The same occupation 
 Portuguese and in English has an identical gold set, so the per-language delta is measurable
 directly, with no translation step and no annotation cost.
 
+Figures in this section come from [`dataset_profile.md`](results/dataset_profile.md).
+
 ## Approaches compared
 
 Each scored on the same frozen split, with latency and cost recorded alongside quality.
@@ -411,6 +423,8 @@ independent.
 
 Because per-query results are recorded per language against the same occupation URIs, fusion is
 an analysis over existing runs rather than a separate retrieval pipeline.
+
+Figures in this section come from [`residual_gap.md`](results/residual_gap.md) and [`rerank.md`](results/rerank.md).
 
 ## Limitations
 
@@ -449,6 +463,8 @@ an analysis over existing runs rather than a separate retrieval pipeline.
   deterministic at temperature 0: two identical runs differed by up to 0.0015 nDCG@10, small
   against its 0.03 lead over the local model, but enough that the figures cannot be reproduced
   exactly.
+
+Figures in this section come from [`split_profile.md`](results/split_profile.md), [`llm_rerank_deepseek.md`](results/llm_rerank_deepseek.md), [`gold_size_slice.md`](results/gold_size_slice.md), [`dataset_profile.md`](results/dataset_profile.md), [`bm25.md`](results/bm25.md), [`llm_compare.md`](results/llm_compare.md) and constants recorded in [`figure_sources.md`](results/figure_sources.md).
 
 ## Repository layout
 
@@ -545,6 +561,8 @@ and each further query costs only its own retrieval. Every result shows the skil
 both languages, since an ESCO concept keeps one URI across all of them. The first run in each
 language embeds all 13,939 skills, which takes a minute or two on a GPU; later runs read the
 cached embeddings.
+
+Figures in this section come from [`dataset_profile.md`](results/dataset_profile.md).
 
 ## Design notes
 

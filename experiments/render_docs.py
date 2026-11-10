@@ -8,6 +8,8 @@ placeholder naming a figure in `experiments/figures.py`:
                                    value that rounds to zero carries no sign
     {{deepseek.run_date:date}}     2026-11-09 -> 9 November 2026
     {{fusion.rrf.failed:w}}        small integers as words: 4 -> four
+    {{sources}}                    once per section (## heading) that has numbers:
+                                   links to the reports its figures come from
 
 Writes README.md, results/README.md, data/README.md and
 results/figure_sources.md, which lists every figure with its full-precision
@@ -25,11 +27,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from datetime import date
 
-from experiments.figures import _REF, NOTES, REGISTRY, REPO_ROOT, value
+from experiments.figures import (_REF, NOTES, REGISTRY, REPO_ROOT, RESULTS, files_of,
+                                 report_for, value)
 
 TEMPLATES = REPO_ROOT / "docs" / "templates"
 OUTPUTS = {
@@ -74,6 +78,52 @@ def fmt(name: str, spec: str | None) -> str:
     if not re.search(r"[1-9]", s):  # rounds to zero: no sign
         s = s.lstrip("+-")
     return s.replace("-", "−")
+
+
+SOURCES_MARK = "{{sources}}"
+
+
+def has_constant(name: str) -> bool:
+    f = REGISTRY[name]
+    if f.kind == "formula":
+        return any(has_constant(r) for r in _REF.findall(f.source) if r in REGISTRY)
+    return f.kind == "constant"
+
+
+def sources_line(names: list[str], out: str) -> str:
+    """Links, relative to `out`, to the reports behind `names`: the report
+    behind the most figures first, ties in order of first use."""
+    here = os.path.dirname(REPO_ROOT / out)
+    link = lambda f: f"[`{f}`]({os.path.relpath(RESULTS / f, here)})"
+    uses: dict[str, int] = {}
+    for n in dict.fromkeys(n for n in names if n in REGISTRY):
+        for r in dict.fromkeys(report_for(f) for f in files_of(n)):
+            uses[r] = uses.get(r, 0) + 1
+    reports = sorted(uses, key=lambda r: -uses[r])
+    parts = [link(r) for r in reports]
+    if any(has_constant(n) for n in names if n in REGISTRY):
+        parts.append("constants recorded in " + link("figure_sources.md"))
+    if not reports:
+        return f"Figures in this section are {parts[0]}."
+    text = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+    return f"Figures in this section come from {text}."
+
+
+def fill_sources(text: str, out: str, errors: list[str], where: str) -> str:
+    """Replace each section's marker with its sources line. A section is
+    everything from one `## ` heading to the next."""
+    parts = re.split(r"(?m)^(?=## )", text)
+    for i, sec in enumerate(parts):
+        names = [m.group(1) for m in PLACEHOLDER.finditer(sec) if m.group(1) != "sources"]
+        marks = sec.count(SOURCES_MARK)
+        title = sec.split("\n", 1)[0] or "(top)"
+        if names and marks != 1:
+            errors.append(f"{where}: section {title!r} has figures and {marks} {SOURCES_MARK} markers, needs 1")
+        elif not names and marks:
+            errors.append(f"{where}: section {title!r} has a {SOURCES_MARK} marker but no figures")
+        elif names:
+            parts[i] = sec.replace(SOURCES_MARK, sources_line(names, out))
+    return "".join(parts)
 
 
 def render(text: str, errors: list[str], where: str) -> str:
@@ -141,6 +191,7 @@ def main() -> None:
     templates = {tpl: (TEMPLATES / tpl).read_text(encoding="utf-8") for tpl in OUTPUTS}
     for tpl, out in OUTPUTS.items():
         text = templates[tpl]
+        text = fill_sources(text, out, errors, f"docs/templates/{tpl}")
         rendered[out] = render(text, errors, f"docs/templates/{tpl}")
         if args.check:
             errors += [f"docs/templates/{tpl}:{line}: hand-typed number {lit!r}"

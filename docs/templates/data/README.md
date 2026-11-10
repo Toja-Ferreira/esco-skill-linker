@@ -35,6 +35,8 @@ data/
 Each language folder holds the full distribution as downloaded ({{data.raw.pt.files:.0f}} files in Portuguese, {{data.raw.en.files:.0f}} in English). The extra files are
 kept unmodified rather than pruned, so the folder matches what the portal serves.
 
+{{sources}}
+
 ## Verification
 
 The paths in `checksums.txt` are relative to `data/`, so run the check from there:
@@ -85,6 +87,8 @@ concept files.
 
 **`definition` and `scopeNote` are empty in Portuguese and sparse in English**: in
 English, {{data.nonempty.en.skills.definition:.0f}} skills carry a `definition` and {{data.nonempty.en.skills.scopeNote:.0f}} a `scopeNote`, and {{data.nonempty.en.occupations.definition:.0f}} and {{data.nonempty.en.occupations.scopeNote:.0f}} occupations do. `description` is the only long-form text field with content in both languages.
+
+{{sources}}
 
 ## Other distributions
 

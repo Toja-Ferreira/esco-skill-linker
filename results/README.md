@@ -71,6 +71,8 @@ lexical language gap by compressing a tail of failing Portuguese queries, fusion
 then widened it again because lexical retrieval helps English more, and no
 reranker moved it afterwards.
 
+Figures in this section come from [`rerank.md`](rerank.md), [`split_profile.md`](split_profile.md), [`bm25_stopwords.md`](bm25_stopwords.md), [`bi_encoder.md`](bi_encoder.md), [`llm_rerank_qwen3-4b-local.md`](llm_rerank_qwen3-4b-local.md), [`llm_rerank_deepseek.md`](llm_rerank_deepseek.md), [`fusion.md`](fusion.md), [`bm25.md`](bm25.md), [`dataset_profile.md`](dataset_profile.md) and constants recorded in [`figure_sources.md`](figure_sources.md).
+
 ---
 
 ## Reading the numbers
@@ -95,6 +97,8 @@ of 0.345, so most of what it shows is wrong, alongside MRR of 0.768, meaning the
 first genuinely essential skill usually appears at rank 1 or 2 out of 13,939
 candidates. Retrieval finds one correct skill easily and the full set poorly,
 and which of those matters depends on the interface.
+
+Figures in this section come from [`split_profile.md`](split_profile.md), [`bm25.md`](bm25.md), [`bi_encoder.md`](bi_encoder.md), [`llm_rerank_deepseek.md`](llm_rerank_deepseek.md) and [`dataset_profile.md`](dataset_profile.md).
 
 ---
 
@@ -200,6 +204,8 @@ No parameter tuning has been done in either language.
 26 to 47 ms per query, index build at most 7.1 s, everything in memory. Any method
 costing materially more should be judged on quality per unit latency.
 
+Figures in this section come from [`bm25_stopwords.md`](bm25_stopwords.md), [`bm25.md`](bm25.md), [`dataset_profile.md`](dataset_profile.md) and [`split_profile.md`](split_profile.md).
+
 ---
 
 ## 02: Quality by gold set size
@@ -255,6 +261,8 @@ Method behaviour is stable as gold sets shrink toward the target task, across
 the range this benchmark can test. Query length remains untested, since all
 queries here are full occupation descriptions.
 
+Figures in this section come from [`gold_size_slice.md`](gold_size_slice.md), [`split_profile.md`](split_profile.md) and [`bm25_stopwords.md`](bm25_stopwords.md).
+
 ---
 
 ## 03: How much vocabulary do queries share with their gold skills?
@@ -294,6 +302,8 @@ by 12.5% against 11.7%. The Portuguese stemmer conflates at least as much.
 
 So Portuguese shares as much vocabulary with its gold skills as English does,
 and still retrieves worse. Counting token types was the wrong measure.
+
+Figures in this section come from [`lexical_overlap.md`](lexical_overlap.md).
 
 ---
 
@@ -340,6 +350,8 @@ translations of each other.
 This also explains why a frequency-derived stopword list would be the wrong
 instrument. Cutting each corpus's top N terms removes different grammatical
 categories in each language, rebuilding the asymmetry it is meant to remove.
+
+Figures in this section come from [`weighted_overlap.md`](weighted_overlap.md), [`lexical_overlap.md`](lexical_overlap.md) and constants recorded in [`figure_sources.md`](figure_sources.md).
 
 ---
 
@@ -420,6 +432,8 @@ three cheapest explanations, missing labels, translation drift, and preprocessin
 asymmetry, have each been tested and each accounts for only part or none of the
 effect.
 
+Figures in this section come from [`bm25_stopwords.md`](bm25_stopwords.md).
+
 ---
 
 ## 06: Parameter sweep, and is the baseline fair?
@@ -488,6 +502,8 @@ rows differ for the already-known reason of alternative label coverage.
 
 So Portuguese descriptions are more lexically varied than English ones and still
 retrieve worse.
+
+Figures in this section come from [`bm25_sweep.md`](bm25_sweep.md), [`weighted_overlap.md`](weighted_overlap.md), [`split_profile.md`](split_profile.md) and [`bm25_stopwords.md`](bm25_stopwords.md).
 
 ---
 
@@ -610,6 +626,8 @@ tail, and the tail is invisible to means.
 That is why experiments 03 and 09 found nothing while experiment 08 found
 something obvious. They were measuring different populations.
 
+Figures in this section come from [`idf_band_overlap.md`](idf_band_overlap.md), [`score_distribution.md`](score_distribution.md), [`bm25_stopwords.md`](bm25_stopwords.md), [`failure_cases.md`](failure_cases.md) and [`residual_gap.md`](residual_gap.md).
+
 ---
 
 ## 10: Bi-encoder retrieval
@@ -711,6 +729,8 @@ only the query is encoded at request time. The costs dense retrieval adds are a
 one-off indexing pass and a resident index, not per-request latency. Timings
 were taken on a shared GPU and should be treated as indicative.
 
+Figures in this section come from [`bi_encoder.md`](bi_encoder.md), [`bm25_stopwords.md`](bm25_stopwords.md) and constants recorded in [`figure_sources.md`](figure_sources.md).
+
 ---
 
 ## 11: Where the dense gain comes from
@@ -787,6 +807,8 @@ of its best. That is the precondition for score fusion working, and it is a
 stronger reason to try a hybrid than the usual observation that hybrids tend to
 help.
 
+Figures in this section come from [`dense_vs_lexical.md`](dense_vs_lexical.md), [`split_profile.md`](split_profile.md) and constants recorded in [`figure_sources.md`](figure_sources.md).
+
 ---
 
 ## 12: What is left of the language gap
@@ -858,6 +880,8 @@ Fusion remains worth measuring, because the headroom is real and the deployment
 setting supplies both texts at no extra cost. But the case for it is smaller
 than the earlier correlation figure implied, and it is now measured rather than
 inferred.
+
+Figures in this section come from [`residual_gap.md`](residual_gap.md), [`score_distribution.md`](score_distribution.md), [`bi_encoder.md`](bi_encoder.md), [`dense_vs_lexical.md`](dense_vs_lexical.md) and constants recorded in [`figure_sources.md`](figure_sources.md).
 
 ---
 
@@ -969,6 +993,8 @@ follows directly from the lexical diagnosis in experiments 01 to 09.
 For a Portuguese-only deployment the relevant number is different again: hybrid
 Portuguese at 0.3439 is 29.4% above the Portuguese lexical baseline, and is the
 best available without an English text.
+
+Figures in this section come from [`fusion.md`](fusion.md), [`rerank.md`](rerank.md), [`bi_encoder.md`](bi_encoder.md), [`bm25_stopwords.md`](bm25_stopwords.md), [`residual_gap.md`](residual_gap.md) and constants recorded in [`figure_sources.md`](figure_sources.md).
 
 ---
 
@@ -1165,6 +1191,8 @@ Meanwhile the oracle says perfect ordering of the same candidates would more
 than double the score. The ordering problem is large, real, and untouched by
 off-the-shelf cross-encoders.
 
+Figures in this section come from [`rerank.md`](rerank.md), [`rerank_qwen3-0.6b.md`](rerank_qwen3-0.6b.md) and constants recorded in [`figure_sources.md`](figure_sources.md).
+
 ---
 
 ## 15: Listwise LLM reranking, local and API
@@ -1263,6 +1291,8 @@ Portuguese costs more per description. Longer Portuguese descriptions and
 English-centred tokenisers both contribute, and this experiment does not
 separate them.
 
+Figures in this section come from [`llm_rerank_qwen3-4b-local.md`](llm_rerank_qwen3-4b-local.md), [`rerank.md`](rerank.md), [`llm_rerank_deepseek.md`](llm_rerank_deepseek.md), [`split_profile.md`](split_profile.md) and constants recorded in [`figure_sources.md`](figure_sources.md).
+
 ---
 
 ## 16: Local against API, per query
@@ -1320,6 +1350,8 @@ which may matter more than the score in a university deployment.
 Neither changes the language gap. Whatever puts Portuguese behind English is
 already fixed by the time the shortlist reaches the reranker.
 
+Figures in this section come from [`llm_compare.md`](llm_compare.md), [`split_profile.md`](split_profile.md), [`rerank.md`](rerank.md), [`llm_rerank_qwen3-4b-local.md`](llm_rerank_qwen3-4b-local.md), [`llm_rerank_deepseek.md`](llm_rerank_deepseek.md) and constants recorded in [`figure_sources.md`](figure_sources.md).
+
 ---
 
 ## Where this leaves the central question
@@ -1371,3 +1403,5 @@ gap. The rest is unexplained.
 the only reranking method here that beats the first stage, by about 10% with a
 local 4B model and 18% to 20% with DeepSeek. Neither moves the gap, and at the
 depth they work at, the oracle says no reranker could.
+
+Figures in this section come from [`rerank.md`](rerank.md), [`bm25_stopwords.md`](bm25_stopwords.md), [`bi_encoder.md`](bi_encoder.md), [`dense_vs_lexical.md`](dense_vs_lexical.md), [`llm_rerank_deepseek.md`](llm_rerank_deepseek.md), [`dataset_profile.md`](dataset_profile.md) and [`llm_rerank_qwen3-4b-local.md`](llm_rerank_qwen3-4b-local.md).

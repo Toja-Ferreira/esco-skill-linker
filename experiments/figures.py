@@ -50,6 +50,7 @@ class Figure:
     source: str
     compute: Callable[[], float]
     kind: str  # lookup, formula, computed, constant
+    files: tuple[str, ...]  # files under results/ it reads; formulas take their inputs'
 
 
 REGISTRY: dict[str, Figure] = {}
@@ -58,10 +59,14 @@ REGISTRY: dict[str, Figure] = {}
 NOTES: list[str] = []
 
 
-def _add(name: str, source: str, compute: Callable[[], float], kind: str) -> None:
+def _add(name: str, source: str, compute: Callable[[], float], kind: str,
+         files: tuple[str, ...] | None = None) -> None:
     if name in REGISTRY:
         raise ValueError(f"figure defined twice: {name}")
-    REGISTRY[name] = Figure(name, source, compute, kind)
+    if files is None:  # the result files the source text names
+        files = tuple(f for f in re.findall(r"`([\w.-]+\.(?:csv|md))`", source)
+                      if (RESULTS / f).exists()) if kind in ("lookup", "computed") else ()
+    REGISTRY[name] = Figure(name, source, compute, kind, files)
 
 
 @lru_cache(None)
@@ -112,12 +117,54 @@ def formula(name: str, expr: str) -> None:
     _add(name, expr, compute, "formula")
 
 
-def computed(name: str, source: str, fn: Callable[[], float]) -> None:
-    _add(name, source, fn, "computed")
+def computed(name: str, source: str, fn: Callable[[], float],
+             files: tuple[str, ...] | None = None) -> None:
+    _add(name, source, fn, "computed", files)
 
 
 def constant(name: str, v: float, source: str) -> None:
     _add(name, source, lambda: float(v), "constant")
+
+
+# The generated report that presents each CSV, for links meant for readers.
+REPORTS = {
+    "bi_encoder": "bi_encoder.md", "bm25_per_query": "bm25.md", "bm25_summary": "bm25.md",
+    "bm25_stopwords": "bm25_stopwords.md", "bm25_sweep_dev": "bm25_sweep.md",
+    "bm25_tuned_test": "bm25_sweep.md", "dense_vs_lexical": "dense_vs_lexical.md",
+    "fusion": "fusion.md", "gold_size_slice": "gold_size_slice.md",
+    "idf_band_overlap": "idf_band_overlap.md", "lexical_overlap": "lexical_overlap.md",
+    "llm_compare": "llm_compare.md", "residual_gap": "residual_gap.md",
+    "score_distribution": "score_distribution.md", "weighted_overlap": "weighted_overlap.md",
+}
+
+
+def report_for(file: str) -> str:
+    """The generated .md a reader should open for `file`."""
+    if file.endswith(".md"):
+        return file
+    stem = file.removesuffix(".csv")
+    for tag in ("_qwen3-0.6b", "_qwen3-4b-local", "_deepseek"):
+        if stem.endswith(tag):
+            base = "llm_rerank" if stem.startswith("llm_rerank") else "rerank"
+            return f"{base}{tag}.md"
+    if stem.startswith("rerank_"):
+        return "rerank.md"
+    for prefix in sorted(REPORTS, key=len, reverse=True):
+        if stem.startswith(prefix):
+            return REPORTS[prefix]
+    raise KeyError(f"no report for {file}; add it to REPORTS")
+
+
+def files_of(name: str) -> tuple[str, ...]:
+    """Result files behind a figure, following formulas to their inputs.
+    Empty for a constant."""
+    f = REGISTRY[name]
+    if f.kind != "formula":
+        return f.files
+    out: list[str] = []
+    for ref in _REF.findall(f.source):
+        out += [x for x in files_of(ref) if x not in out]
+    return tuple(out)
 
 
 @lru_cache(None)
@@ -299,7 +346,8 @@ for k in (1, 3, 5, 10, 20, 50):
              f"mean over test queries of min({k}, n) / n, n = essential skills per query, "
              "recovered from the committed `*per_query*.csv` files (h / r = k P@k / recall@k) "
              "and checked against `split_profile.md` (608 queries, 13,682 essential)",
-             lambda k=k: float((np.minimum(k, gold_counts()) / gold_counts()).mean()))
+             lambda k=k: float((np.minimum(k, gold_counts()) / gold_counts()).mean()),
+             files=("bm25.md", "split_profile.md"))
 
 # ---------------------------------------------------------- 02: gold size
 
@@ -555,7 +603,8 @@ for key in RERANKERS:
             return (value(f"{k}.ndcg10") - value(f"hybrid.test.{lang}.ndcg10")) / (
                 value(f"oracle{d}.test.{lang}.ndcg10") - value(f"hybrid.test.{lang}.ndcg10"))
         computed(f"{k}.captured", f"({k}.ndcg10 - hybrid.test.{lang}.ndcg10) / "
-                 f"(oracle at depth {k}.depth - hybrid.test.{lang}.ndcg10)", cap)
+                 f"(oracle at depth {k}.depth - hybrid.test.{lang}.ndcg10)", cap,
+                 files=(RERANKERS[key][0], RT))
 RECOVERED = ", ".join(f"{{ce.{r}.{l}.recovered}}" for r in RERANKERS for l in LANGS)
 formula("ce.recovered.min", f"min({RECOVERED})")
 formula("ce.recovered.max", f"max({RECOVERED})")
