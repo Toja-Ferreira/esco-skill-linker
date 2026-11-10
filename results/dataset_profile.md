@@ -61,3 +61,30 @@ Languages: pt, en
 | `629685b8-5f9e-4522-8cff-b3e2c4ec625a` | tratamento de dados digitais | — | — |
 | `7e5147d1-60b1-4a68-804b-1f5cb0396b91` | resolução de problemas com a ajuda de ferramentas e equipamentos TIC | — | — |
 | `f5369f2f-e52b-43d8-8d31-79a6c11188d8` | criação de conteúdos digitais | — | — |
+
+## Raw release
+
+Counted on the CSV files as downloaded, before duplicate rows are collapsed.
+
+| language | CSV files | skill rows | skill URIs | occupation rows | occupation URIs |
+|---|---:|---:|---:|---:|---:|
+| pt | 18 | 13,960 | 13,939 | 3,043 | 3,039 |
+| en | 19 | 13,960 | 13,939 | 3,043 | 3,039 |
+
+### Concepts with at least one alternative label
+
+| language | skills | occupations |
+|---|---:|---:|
+| pt | 1,126 | 2,588 |
+| en | 13,921 | 3,039 |
+
+### Concepts with a non-empty `definition` or `scopeNote`
+
+Both fields are dropped by the build; `description` is the text used.
+
+| language | concept type | definition | scopeNote |
+|---|---|---:|---:|
+| pt | skills | 0 | 0 |
+| pt | occupations | 0 | 0 |
+| en | skills | 2 | 235 |
+| en | occupations | 8 | 309 |

@@ -87,7 +87,7 @@ Both stages are scored on the identical queries, so the comparison is paired. **
 
 ## Cost
 
-A cross-encoder scores every pair individually, so nothing is precomputed and cost scales with shortlist depth. For comparison, BM25 and the bi-encoder both answer in well under a millisecond per query once indexed.
+A cross-encoder scores every pair individually, so nothing is precomputed and cost scales with shortlist depth. It comes on top of the first stage: the bi-encoder answers in well under a millisecond per query once indexed, and BM25 over the full index takes tens of milliseconds (experiment 01).
 
 | language | pairs scored | total s | ms/query |
 |---|---:|---:|---:|

@@ -33,14 +33,14 @@ queries where lexical matching failed.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="results/figures/systems_dark.svg">
-  <img alt="nDCG@10 per system and language. Scores rise from BM25 through dense retrieval and fusion; the cross-encoder adds nothing, Qwen3-4B adds about 10% and DeepSeek about 19%. Perfect ordering of the same shortlist would reach about 0.80." src="results/figures/systems_light.svg">
+  <img alt="nDCG@10 per system and language. Scores rise from BM25 through dense retrieval and fusion; the cross-encoder adds nothing, Qwen3-4B adds about 10% and DeepSeek 18% to 20%. Perfect ordering of the same shortlist would reach about 0.81." src="results/figures/systems_light.svg">
 </picture>
 
 | method | English | Portuguese | gap | gap, relative |
 |---|---:|---:|---:|---:|
 | BM25, stemmed, stopwords removed | 0.325 | 0.266 | 0.059 | +22.3% |
 | Bi-encoder, EmbeddingGemma-300M | 0.358 | 0.328 | 0.029 | +8.9% |
-| Hybrid, weighted score fusion | 0.379 | 0.344 | 0.036 | +10.3% |
+| Hybrid, weighted score fusion | 0.379 | 0.344 | 0.035 | +10.3% |
 | Hybrid, reranked by Qwen3-4B (local) | 0.415 | 0.379 | 0.036 | +9.5% |
 | **Hybrid, reranked by DeepSeek (API)** | **0.446** | **0.412** | 0.034 | +8.3% |
 
@@ -48,20 +48,20 @@ nDCG@10. The gap is English minus Portuguese. Both columns matter: a relative ga
 whenever both languages improve, even if the distance between them stays the same.
 
 Dense retrieval removes about half of the language gap (51% in absolute terms, 60% as a
-relative gap), and does so asymmetrically: Portuguese gains 23.5% where English gains 10.0%. A study reporting only a pooled figure across
-languages would have called that a modest 10% improvement and missed what it was doing.
+relative gap), and does so asymmetrically: Portuguese gains 23.5% where English gains 10.0%. A study reporting only the English figure
+would have called that a modest 10% improvement and missed what it was doing.
 
-Combining lexical with dense retrieval adds another 6% on top, but widens the language gap
+Combining lexical with dense retrieval adds another 6% in English and 5% in Portuguese on top, but widens the language gap
 again, because BM25 helps English more than Portuguese. The best-performing system is not the
 most language-equitable one.
 
 After fusion the bottleneck moved to ordering. A flawless reranker over the same top-100
 candidates would reach 0.797 in Portuguese and 0.821 in English, more than double the best
-first stage, and a correct skill already sits in the top 10 for roughly 91% of queries. Two
+first stage, and a correct skill already sits in the top 10 for roughly 91% of Portuguese queries and 93% of English ones. Two
 off-the-shelf multilingual cross-encoders captured none of that headroom. Both separate correct
 from incorrect candidates well above chance and reproduce 82% to 103% of the first stage's
-ordering quality, so they work, but they never improve on it, while costing 20 to 140 ms per
-query against under one.
+ordering quality, so they work, but they never improve on it, while adding 20 to 142 ms per
+query on top of the first stage.
 
 Listwise LLM reranking does improve on it. The model sees the description and all 20 top
 candidates in one prompt and picks the best 10, so it can compare candidates against each
@@ -255,12 +255,13 @@ appear as gold.
 | Field | PT skills | EN skills |
 |---|---|---|
 | `description` | 13,939 (100%) | 13,939 (100%) |
-| `altLabels`, concepts covered | 1,124 (8.1%) | 13,921 (99.9%) |
+| `altLabels`, concepts covered | 1,126 (8.1%) | 13,921 (99.9%) |
 | `altLabels`, total labels | 3,632 | **86,454** |
-| `definition` | 0 | 0 |
-| `scopeNote` | 0 | 0 |
+| `definition` | 0 | 2 |
+| `scopeNote` | 0 | 235 |
 
-`definition` and `scopeNote` are empty throughout and are dropped.
+`definition` and `scopeNote` are not used. Only English has them, so including them would add
+another English-only advantage.
 
 **The asymmetry is concentrated on the corpus side.** Occupations, which supply the queries,
 carry 8,924 Portuguese alt-labels against 30,387 English, a 3.4x gap, much of it gendered pairs
@@ -310,7 +311,7 @@ relation-file labels would silently produce an English benchmark labelled as Por
 Three per language: `skills_<lang>.csv`, `occupations_<lang>.csv`,
 `occupationSkillRelations_<lang>.csv`.
 
-The distribution ships 17 files per language. The collection files
+The distribution ships 18 files in Portuguese and 19 in English. The collection files
 (`transversalSkillsCollection`, `greenSkillsCollection`, `digitalSkillsCollection` and
 similar) are redundant here because `reuseLevel` and `inScheme` on `skills` already encode
 that membership. `broaderRelationsSkillPillar`, `skillGroups` and `skillsHierarchy` become
@@ -387,7 +388,7 @@ Each scored on the same frozen split, with latency and cost recorded alongside q
 6. **Listwise LLM reranking**, a local model against a paid API, on quality, latency and cost
 
 Late interaction (ColBERT-style, one vector per token) was planned and dropped. The oracle in
-experiment 14 shows the existing shortlist already supports nDCG@10 of about 0.80, so the
+experiment 14 shows the existing shortlist already supports nDCG@10 of about 0.81, so the
 bottleneck is ordering, and a different retriever would not address it.
 
 ### Why bilingual fusion
@@ -416,7 +417,7 @@ an analysis over existing runs rather than a separate retrieval pipeline.
 - **Occupation to skill links describe work, not teaching.** Performance on this benchmark is
   a proxy for the course-documentation use case rather than a measurement of it.
 - **Query shape differs from the target use case.** Benchmark queries are occupation
-  descriptions with a mean of 22.2 gold skills each. Real learning outcomes run 10 to 15 words
+  descriptions with a mean of 22.5 gold skills each. Real learning outcomes run 10 to 15 words
   with 1 to 3 concepts. [Experiment 02](results/README.md) tests how far this matters by
   slicing results into gold-set-size quartiles: the ranking of methods and the size of the
   Portuguese deficit are stable across quartiles, and performance on the smallest bucket
@@ -556,6 +557,11 @@ cached embeddings.
 - **Language gaps are reported in absolute as well as relative terms.** A relative gap shrinks
   whenever both languages improve, so any claim that a method narrows the gap is checked against
   the absolute difference, per query, with a paired interval.
+- **Numbers in the READMEs are generated.** The prose lives in `docs/templates/`, where every
+  figure is a placeholder resolved by `experiments/figures.py` from the committed result files.
+  [`results/figure_sources.md`](results/figure_sources.md) lists each figure's value and source.
+  Regenerate with `python -m experiments.render_docs`; add `--check` to fail on a stale README or
+  a hand-typed number in a template.
 
 ## Related work by the author
 

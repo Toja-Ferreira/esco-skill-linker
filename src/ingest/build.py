@@ -48,7 +48,7 @@ def build_concepts(languages: list[str], stem: str, attrs: list[str]) -> pd.Data
     """One row per concept, carrying only language-independent attributes.
 
     The release contains a handful of concepts exported twice, differing only
-    in `modifiedDate` (four occupations in v1.2.1). Since `modifiedDate` is not
+    in `modifiedDate` (21 skills and four occupations in v1.2.1). Since `modifiedDate` is not
     among the retained attributes, those rows are exact duplicates here and are
     collapsed. A URI appearing twice with genuinely conflicting attributes is a
     different problem and raises.
@@ -140,7 +140,8 @@ def build_labels(languages: list[str]) -> pd.DataFrame:
 def build_texts(languages: list[str]) -> pd.DataFrame:
     """Descriptions, plus the preferred label alongside for convenience.
 
-    `definition` and `scopeNote` are empty throughout this release and dropped.
+    `definition` and `scopeNote` are dropped: empty in Portuguese and filled for
+    only a few hundred concepts in English (counts in the dataset profile).
     """
     parts = []
     for stem in ("skills", "occupations"):
@@ -247,6 +248,48 @@ def profile(skills, occupations, relations, labels, texts, languages) -> str:
     return "\n".join(out)
 
 
+def raw_profile(languages: list[str]) -> str:
+    """Facts about the raw files that the normalised tables no longer show:
+    file counts, duplicate rows, alt-label coverage per concept, and the
+    long-form fields that are dropped."""
+    out: list[str] = []
+    w = out.append
+
+    w("## Raw release\n")
+    w("Counted on the CSV files as downloaded, before duplicate rows are collapsed.\n")
+    w("| language | CSV files | skill rows | skill URIs | occupation rows | occupation URIs |")
+    w("|---|---:|---:|---:|---:|---:|")
+    raw = {(lang, stem): read_raw(lang, stem) for lang in languages
+           for stem in ("skills", "occupations")}
+    for lang in languages:
+        s, o = raw[lang, "skills"], raw[lang, "occupations"]
+        w(f"| {lang} | {len(list((RAW / lang).glob('*.csv')))} | {len(s):,} | "
+          f"{s['conceptUri'].nunique():,} | {len(o):,} | {o['conceptUri'].nunique():,} |")
+    w("")
+
+    w("### Concepts with at least one alternative label\n")
+    w("| language | skills | occupations |")
+    w("|---|---:|---:|")
+    for lang in languages:
+        n = [(raw[lang, stem].drop_duplicates("conceptUri")["altLabels"].str.strip() != "").sum()
+             for stem in ("skills", "occupations")]
+        w(f"| {lang} | {n[0]:,} | {n[1]:,} |")
+    w("")
+
+    w("### Concepts with a non-empty `definition` or `scopeNote`\n")
+    w("Both fields are dropped by the build; `description` is the text used.\n")
+    w("| language | concept type | definition | scopeNote |")
+    w("|---|---|---:|---:|")
+    for lang in languages:
+        for stem in ("skills", "occupations"):
+            d = raw[lang, stem].drop_duplicates("conceptUri")
+            w(f"| {lang} | {stem} | {(d['definition'].str.strip() != '').sum():,} | "
+              f"{(d['scopeNote'].str.strip() != '').sum():,} |")
+    w("")
+
+    return "\n".join(out)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--languages", nargs="+", default=DEFAULT_LANGUAGES)
@@ -278,7 +321,8 @@ def main() -> None:
         df.to_parquet(path, index=False)
         print(f"  wrote {path.relative_to(REPO_ROOT)} ({len(df):,} rows)")
 
-    report = profile(skills, occupations, relations, labels, texts, languages)
+    report = (profile(skills, occupations, relations, labels, texts, languages)
+              + "\n" + raw_profile(languages))
     out = REPO_ROOT / "results" / "dataset_profile.md"
     out.write_text(report, encoding="utf-8")
     print(f"  wrote {out.relative_to(REPO_ROOT)}\n")

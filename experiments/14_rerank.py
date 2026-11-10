@@ -594,9 +594,10 @@ def render(dev: pd.DataFrame, test: pd.DataFrame, ceil: pd.DataFrame,
 
         w("## Cost\n")
         w("A cross-encoder scores every pair individually, so nothing is "
-          "precomputed and cost scales with shortlist depth. For comparison, "
-          "BM25 and the bi-encoder both answer in well under a millisecond per "
-          "query once indexed.\n")
+          "precomputed and cost scales with shortlist depth. It comes on top of "
+          "the first stage: the bi-encoder answers in well under a millisecond "
+          "per query once indexed, and BM25 over the full index takes tens of "
+          "milliseconds (experiment 01).\n")
         w("| language | pairs scored | total s | ms/query |")
         w("|---|---:|---:|---:|")
         for _, r in rr.iterrows():

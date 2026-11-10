@@ -25,6 +25,8 @@ not.
 
 Figures in [`figures/`](figures/) are drawn from these result files by
 [`experiments/make_figures.py`](../experiments/make_figures.py).
+Every number in this file is rendered from them too;
+[`figure_sources.md`](figure_sources.md) gives the source of each.
 
 Also here: [`dataset_profile.md`](dataset_profile.md) and
 [`split_profile.md`](split_profile.md), describing the release and the frozen
@@ -37,7 +39,7 @@ evaluation split.
 Experiment 14 measures what a flawless reranker would reach over the same
 top-100 candidates: **0.797 Portuguese and 0.821 English**, more than double
 the best first stage. The shortlist already contains a correct skill in its top
-10 for roughly 91% of queries, so most of what is missing is ordering.
+10 for roughly 91% of Portuguese queries and 93% of English ones, so most of what is missing is ordering.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="figures/systems_dark.svg">
@@ -61,7 +63,7 @@ Fusing all four runs, both methods in both languages, scores marginally higher
 at 0.3817 but is not distinguishable from it (paired difference +0.0023
 [−0.0010, +0.0056]), so the simpler system is preferred.
 
-Recall@10 is capped at 0.543 on this split, so the hybrid's 0.155 is 29% of
+Recall@10 is capped at 0.543 on this split, so the English hybrid's 0.155 is 29% of
 what is reachable.
 
 What the headline table does not show: dense retrieval closed about half of the
@@ -75,7 +77,7 @@ reranker moved it afterwards.
 
 **Recall@k is capped well below 1.** Occupations carry around 22 essential
 skills on average and only 10 fit in a top-10, so the highest recall@10
-achievable on this split is **0.543**. A recall@10 of 0.145 is 27% of what is
+achievable on this split is **0.543**. EmbeddingGemma's English recall@10 of 0.145 is 27% of what is
 reachable.
 
 | k | 1 | 3 | 5 | 10 | 20 | 50 |
@@ -88,8 +90,8 @@ only when the interval excludes zero, so a change with no arrow is not
 distinguishable from noise. Language gaps carry no arrow. Bold marks the best
 value in a comparison.
 
-**Precision and MRR answer different questions.** The best English run has P@10
-of 0.270, so most of what it shows is wrong, alongside MRR of 0.678, meaning the
+**Precision and MRR answer different questions.** The best English run, DeepSeek reranking, has P@10
+of 0.345, so most of what it shows is wrong, alongside MRR of 0.768, meaning the
 first genuinely essential skill usually appears at rank 1 or 2 out of 13,939
 candidates. Retrieval finds one correct skill easily and the full set poorly,
 and which of those matters depends on the interface.
@@ -128,8 +130,8 @@ more text and still scores lower:
 | description, raw | 25.2 | 22.2 | 0.188 | 0.230 | +22.4% |
 | description, stemmed | 25.2 | 22.2 | 0.208 | 0.258 | +24.3% |
 
-Portuguese preferred labels are 36% longer than English ones and score 16%
-lower. Descriptions are 14% longer and score 24% lower. Every interval is
+Portuguese preferred labels are 36% longer than English ones and score 14%
+lower. Descriptions are 14% longer and score 20% lower. Every interval is
 disjoint. A shortage of text does not explain this, which rules out the original
 framing of the project's central question. Experiments 03 to 05 pursue the
 cause.
@@ -195,7 +197,7 @@ No parameter tuning has been done in either language.
 
 ### Cost
 
-26 to 50 ms per query, index build under 7 s, everything in memory. Any method
+26 to 47 ms per query, index build at most 7.1 s, everything in memory. Any method
 costing materially more should be judged on quality per unit latency.
 
 ---
@@ -287,7 +289,7 @@ went the other way.
 **Portuguese stemmer under-conflation is not supported.** The competing
 explanation was that Snowball Portuguese conflates less than Snowball English,
 leaving morphological variants unmatched. Stemming raises Portuguese coverage on
-descriptions by 31.7% against English's 24.5%, and shrinks the gold vocabulary
+descriptions by 31.6% against English's 24.5%, and shrinks the gold vocabulary
 by 12.5% against 11.7%. The Portuguese stemmer conflates at least as much.
 
 So Portuguese shares as much vocabulary with its gold skills as English does,
@@ -381,12 +383,12 @@ English advantage in nDCG@10:
 | labels | raw | +39.8% | +23.4% | −16.4 pp |
 | labels | stemmed | +37.5% | +21.7% | −15.8 pp |
 | labels_desc | raw | +26.4% | +23.3% | −3.1 pp |
-| labels_desc | stemmed | +25.0% | +22.3% | −2.7 pp |
+| labels_desc | stemmed | +25.0% | +22.3% | −2.6 pp |
 | description | raw | +22.4% | +16.0% | −6.4 pp |
-| description | stemmed | +24.3% | +18.2% | −6.1 pp |
+| description | stemmed | +24.3% | +18.2% | −6.2 pp |
 
 On `description` stemmed, the fairest comparison available, preprocessing
-accounted for roughly a quarter of the gap: 6.1 points of 24.3. The remaining
+accounted for roughly a quarter of the gap: 6.2 points of 24.3. The remaining
 18.2% persists with disjoint intervals.
 
 ### Confirmation in the token counts
@@ -456,7 +458,7 @@ return.
 The dev surfaces are nearly flat across the useful range of `b`. Portuguese
 peaks at 0.75, with 0.9 giving 0.2787 and 1.0 giving 0.2761. English peaks at
 1.0, with 0.9 at 0.3349 and 0.75 at 0.3334. Moving `b` between 0.75 and 1.0
-changes nDCG@10 by under 0.005 in either language, against a language gap of
+changes nDCG@10 by at most 0.0041 in either language, against a language gap of
 roughly 0.06.
 
 The surfaces do differ in shape: English rises monotonically in `b` while
@@ -532,7 +534,7 @@ Roughly 90% of Portuguese queries behave much like English ones. The aggregate
 gap is produced by the worst 5 to 10%.
 
 This also explains a pattern visible since experiment 01: MRR was always the
-closest metric between the two languages, 0.524 against 0.611, because MRR
+closest metric between the two languages, 0.524 against 0.611 for the corrected BM25 baseline, because MRR
 depends on the first hit, which is where the medians agree. nDCG@10 and recall@10
 showed larger gaps because they depend on the whole top of the list, which is
 where the tail damage lands.
@@ -660,7 +662,7 @@ comes from degrading the stronger language rather than from lifting the weaker
 one. A small language gap is only meaningful read alongside the absolute
 scores.
 
-A study reporting only a pooled figure across languages would have concluded
+A study reporting only the English figure would have concluded
 that dense retrieval offers a modest 10% improvement, and would have missed that
 it does substantially different work in each language.
 
@@ -686,7 +688,7 @@ architecture.
 | embeddinggemma | labels_desc | labels_desc |
 | qwen3-4b | preferred | preferred |
 
-Qwen3 is *worse* with more context: 0.2973 on the preferred label alone against
+Qwen3 is *worse* with more context: on Portuguese dev queries, 0.2973 on the preferred label alone against
 0.2600 with labels and description. The other two prefer the fuller text, as
 BM25 does. Anyone deploying this cannot assume a document representation
 transfers between checkpoints.
@@ -698,11 +700,11 @@ which matters if the interface shows one suggestion rather than ten.
 
 ### Cost
 
-| model | dims | index MB per language | ms/query |
+| model | dims | index MB per language | ms/query, en / pt |
 |---|---:|---:|---:|
-| e5-base | 768 | 42.8 | 0.08 |
-| embeddinggemma | 768 | 42.8 | 0.07 |
-| qwen3-4b | 2560 | 142.7 | 0.09 |
+| e5-base | 768 | 42.8 | 0.14 / 0.10 |
+| embeddinggemma | 768 | 42.8 | 0.11 / 0.10 |
+| qwen3-4b | 2560 | 142.7 | 0.12 / 0.10 |
 
 Per-query latency is comparable to BM25 because the corpus is embedded once and
 only the query is encoded at request time. The costs dense retrieval adds are a
@@ -807,8 +809,8 @@ score distribution:
 | qwen3-4b | +0.0377 | +0.0373 | +0.0334 | +0.0171 | −0.0054 | +5.9% |
 
 Under EmbeddingGemma the gap is roughly flat across the distribution and small
-everywhere, between 0.014 and 0.037. The lexical gap it replaced was two to
-three times larger at every percentile, and its p10 figure understates the
+everywhere, between 0.014 and 0.037. The lexical gap it replaced was 1.8 to
+2.9 times larger at every percentile, and its p10 figure understates the
 damage because Portuguese p10 under BM25 was pinned at exactly 0.0000.
 
 So the terminology explanation developed in experiments 07 to 09 does not carry
@@ -892,7 +894,7 @@ is on the per-query difference against the stronger of the runs being combined.
 | **all four** | **wsf** | **0.3817** | **+6.8%** | **▲ +0.0241 [+0.0173, +0.0310]** |
 
 Only one of five rank-fusion combinations clears zero. `all four` under RRF looks
-like a +1.7% gain but its interval spans zero and it wins on exactly 50% of
+like a +1.7% gain but its interval spans zero and it wins on 49.7% of
 queries, which is a coin flip. All five weighted combinations clear zero.
 
 That is worth stating because reciprocal rank fusion is often presented as the
@@ -965,7 +967,7 @@ The best-performing configuration is not the most language-equitable one, which
 follows directly from the lexical diagnosis in experiments 01 to 09.
 
 For a Portuguese-only deployment the relevant number is different again: hybrid
-Portuguese at 0.3439 is 29.3% above the Portuguese lexical baseline, and is the
+Portuguese at 0.3439 is 29.4% above the Portuguese lexical baseline, and is the
 best available without an English text.
 
 ---
@@ -1001,7 +1003,7 @@ subsample, applied once to test.
 | checkpoint | language | first stage | reranked | gain | paired difference (95% CI) | won |
 |---|---|---:|---:|---:|---|---:|
 | bge-m3 | pt | 0.3439 | 0.3482 | +1.2% | +0.0042 [−0.0043, +0.0132] | 49% |
-| bge-m3 | en | 0.3794 | 0.3793 | −0.0% | −0.0001 [−0.0056, +0.0051] | 46% |
+| bge-m3 | en | 0.3794 | 0.3793 | 0.0% | −0.0001 [−0.0056, +0.0051] | 46% |
 | qwen3-0.6b | pt | 0.3439 | 0.3351 | −2.6% | ▼ −0.0088 [−0.0141, −0.0033] | 41% |
 | qwen3-0.6b | en | 0.3794 | 0.3746 | −1.3% | −0.0048 [−0.0098, +0.0009] | 43% |
 
@@ -1090,7 +1092,7 @@ recorded runs.
 | en | 0.3794 | 0.4648 | 0.5932 | 0.7342 | 0.8212 |
 
 Perfect ordering over a top-100 shortlist would raise nDCG@10 by **132% in
-Portuguese and 116% in English**. Share of that headroom captured:
+Portuguese and 116% in English**. Share of the headroom captured, against the oracle at each reranker's own depth:
 
 | checkpoint | pt | en |
 |---|---:|---:|
@@ -1106,9 +1108,9 @@ rerankers that do rank competently still capture none of what is available.
 
 Oracle MRR at depth 10 is 0.912 in Portuguese and 0.926 in English. Sorting the
 top 10 by relevance puts any gold skill at rank 1, so those figures say a gold
-skill is **already inside the first stage's top 10 for roughly 91% of queries**.
-The measured MRR is 0.654 and 0.700, and both rerankers lowered it further, to
-0.628 and 0.683 under Qwen3.
+skill is **already inside the first stage's top 10 for roughly 91% of Portuguese queries and 93% of English ones**.
+The measured MRR is 0.654 and 0.700. Qwen3 lowered it further, to
+0.628 and 0.683, and bge-m3 left it where it was.
 
 The system finds correct answers and fails to put them first. For an interface
 showing a teacher a handful of suggestions, that is the gap that matters.
@@ -1147,7 +1149,7 @@ other side.
 | qwen3-0.6b | en | 10 | 6,080 | 95.1 |
 
 On the same 6,080 pairs in English, Qwen3 is about 4.7 times slower than bge and
-scores lower. Against a first stage answering in well under a millisecond, both
+scores lower. Added to what the first stage already costs, both
 are expensive for no gain. A cross-encoder scores every pair individually, so
 nothing is precomputed and cost scales directly with depth.
 
@@ -1157,7 +1159,7 @@ Cross-encoder reranking is not worth its cost on this task, and the reason is
 specific rather than general. The rerankers work: they separate gold from non-gold well above
 chance and reproduce 82% to 103% of the first stage's ordering quality. They
 simply do not improve on a hybrid fusion that was already tuned on dev, while
-adding 20 to 140 ms per query.
+adding 20 to 142 ms per query.
 
 Meanwhile the oracle says perfect ordering of the same candidates would more
 than double the score. The ordering problem is large, real, and untouched by
@@ -1200,8 +1202,8 @@ paired intervals are in [`llm_rerank_deepseek.md`](llm_rerank_deepseek.md), and
 its margin over Qwen is tested directly in experiment 16.
 
 Selection on dev did not overfit. Qwen's gain went from +10.6% on dev to +10.1%
-on test in Portuguese and from +6.8% to +9.4% in English; DeepSeek's from +21.1%
-to +19.8% and from +15.5% to +17.6%.
+on test in Portuguese and from +6.9% to +9.4% in English; DeepSeek's from +21.1%
+to +19.8% and from +15.6% to +17.6%.
 
 This is the first method in the project to improve on the tuned hybrid. Both
 models were given the same 20 candidates the cross-encoders saw, so the
@@ -1220,8 +1222,8 @@ fair ceiling is the oracle at depth 20: 0.5540 in Portuguese, 0.5932 in English.
 ### Output reliability
 
 Neither model returned an unparsable response in either language. Qwen repeated
-or dropped a candidate in about one query in a hundred in Portuguese and never
-in English. DeepSeek's repair counts are in its generated file.
+or dropped a candidate in about one query in a hundred in Portuguese and in
+three of 608 in English. DeepSeek's repair counts are in its generated file.
 
 ### Reproducibility
 
@@ -1248,14 +1250,14 @@ busy waiting for data. A batch of 4 fits, and is now the default.
 | model | s/query on test | money |
 |---|---:|---:|
 | Qwen3-4B, laptop RTX 5070 | 1.2 to 1.6 | none per query |
-| DeepSeek, 8 concurrent requests | 0.11 to 0.12 | $0.37 for the experiment |
+| DeepSeek, 8 concurrent requests | 0.11 | $0.37 for the experiment |
 
 The $0.37 covers the whole experiment: 2,016 prompts across the dev sweep and
 the test split in both languages, about $0.0002 per description. Local timings
 varied between runs of identical work (0.94 and 1.63 s/query for the same
 Portuguese test split), so the speed ratio is approximate.
 
-Portuguese prompts are 55% to 60% longer in tokens than English ones under both
+Portuguese prompts are 56% to 59% longer in tokens than English ones under both
 tokenisers (784,547 against 504,227 for DeepSeek on test), so on a paid API
 Portuguese costs more per description. Longer Portuguese descriptions and
 English-centred tokenisers both contribute, and this experiment does not

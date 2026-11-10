@@ -147,8 +147,12 @@ class BM25Index:
     def search(self, query: str, k: int | None = None) -> list[str]:
         """Return skill URIs ranked best-first.
 
-        Ties are broken by the corpus order, which is stable across runs
-        because the corpus is sorted by URI upstream.
+        Ties are not broken by corpus order. The top n are selected with
+        `np.argpartition`, which does not preserve order, and then sorted with a
+        stable sort, so tied skills keep the order argpartition left them in.
+        That order is deterministic for a given score array and n, but depends
+        on n: cutting the same scores at 50 and at 200 can order ties
+        differently (see `results/figure_sources.md`).
         """
         tokens = tokenize(query, self.stemmer, self.stopwords)
         if not tokens:

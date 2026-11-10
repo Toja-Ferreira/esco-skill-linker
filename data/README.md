@@ -32,7 +32,7 @@ data/
 └── processed/         gitignored; derived tables written by src/ingest
 ```
 
-Each language folder holds the full distribution as downloaded (17 files). The extra files are
+Each language folder holds the full distribution as downloaded (18 files in Portuguese, 19 in English). The extra files are
 kept unmodified rather than pruned, so the folder matches what the portal serves.
 
 ## Verification
@@ -83,8 +83,8 @@ though the data dictionary declares both as `skos:prefLabel`. Only `occupationUr
 `skillUri` are language-correct. All joins go through URIs, and labels are taken from the
 concept files.
 
-**`definition` and `scopeNote` are empty for all 13,960 skills and all 3,043 occupations**, in
-both languages. `description` is the only long-form text field with content.
+**`definition` and `scopeNote` are empty in Portuguese and sparse in English**: in
+English, 2 skills carry a `definition` and 235 a `scopeNote`, and 8 and 309 occupations do. `description` is the only long-form text field with content in both languages.
 
 ## Other distributions
 
