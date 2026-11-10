@@ -8,8 +8,10 @@ placeholder naming a figure in `experiments/figures.py`:
                                    value that rounds to zero carries no sign
     {{deepseek.run_date:date}}     2026-11-09 -> 9 November 2026
     {{fusion.rrf.failed:w}}        small integers as words: 4 -> four
-    {{sources}}                    once per section (## heading) that has numbers:
-                                   links to the reports its figures come from
+
+Each rendered number links to the report it comes from (hover shows every
+report a formula reads), or to its row in figure_sources.md when no result
+file is behind it. Numbers inside link text, code or HTML tags stay plain.
 
 Writes README.md, results/README.md, data/README.md and
 results/figure_sources.md, which lists every figure with its full-precision
@@ -80,56 +82,31 @@ def fmt(name: str, spec: str | None) -> str:
     return s.replace("-", "−")
 
 
-SOURCES_MARK = "{{sources}}"
-
-
-def has_constant(name: str) -> bool:
-    f = REGISTRY[name]
-    if f.kind == "formula":
-        return any(has_constant(r) for r in _REF.findall(f.source) if r in REGISTRY)
-    return f.kind == "constant"
-
-
-def sources_line(names: list[str], out: str) -> str:
-    """Links, relative to `out`, to the reports behind `names`: the report
-    behind the most figures first, ties in order of first use."""
+def link_target(name: str, out: str) -> tuple[str, str]:
+    """Where a number links, relative to `out`, and its hover text: the
+    report behind it (the first, when a formula reads several), or its row
+    in figure_sources.md when no result file is behind it."""
     here = os.path.dirname(REPO_ROOT / out)
-    link = lambda f: f"[`{f}`]({os.path.relpath(RESULTS / f, here)})"
-    uses: dict[str, int] = {}
-    for n in dict.fromkeys(n for n in names if n in REGISTRY):
-        for r in dict.fromkeys(report_for(f) for f in files_of(n)):
-            uses[r] = uses.get(r, 0) + 1
-    reports = sorted(uses, key=lambda r: -uses[r])
-    parts = [link(r) for r in reports]
-    if any(has_constant(n) for n in names if n in REGISTRY):
-        parts.append("constants recorded in " + link("figure_sources.md"))
+    reports = list(dict.fromkeys(report_for(f) for f in files_of(name)))
     if not reports:
-        return f"Figures in this section are {parts[0]}."
-    text = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
-    return f"Figures in this section come from {text}."
+        return f"{os.path.relpath(REPO_ROOT / SOURCES, here)}#{name}", "recorded in figure_sources.md"
+    return os.path.relpath(RESULTS / reports[0], here), "from " + ", ".join(reports)
 
 
-def fill_sources(text: str, out: str, errors: list[str], where: str) -> str:
-    """Replace each section's marker with its sources line. A section is
-    everything from one `## ` heading to the next."""
-    parts = re.split(r"(?m)^(?=## )", text)
-    for i, sec in enumerate(parts):
-        names = [m.group(1) for m in PLACEHOLDER.finditer(sec) if m.group(1) != "sources"]
-        marks = sec.count(SOURCES_MARK)
-        title = sec.split("\n", 1)[0] or "(top)"
-        if names and marks != 1:
-            errors.append(f"{where}: section {title!r} has figures and {marks} {SOURCES_MARK} markers, needs 1")
-        elif not names and marks:
-            errors.append(f"{where}: section {title!r} has a {SOURCES_MARK} marker but no figures")
-        elif names:
-            parts[i] = sec.replace(SOURCES_MARK, sources_line(names, out))
-    return "".join(parts)
+# Places a link cannot go: inside another link's text, code, or an HTML tag.
+NO_LINK = re.compile(r"\[[^\[\]\n]*\]\(|```.*?```|`[^`\n]*`|<[^>]*>", re.S)
 
 
-def render(text: str, errors: list[str], where: str) -> str:
+def render(text: str, errors: list[str], where: str, out: str) -> str:
+    plain = [m.span() for m in NO_LINK.finditer(text)]
+
     def sub(m: re.Match) -> str:
         try:
-            return fmt(m.group(1), m.group(2))
+            s = fmt(m.group(1), m.group(2))
+            if any(a <= m.start() < b for a, b in plain):
+                return s
+            url, title = link_target(m.group(1), out)
+            return f'[{s}]({url} "{title}")'
         except Exception as e:  # noqa: BLE001 - every failure is reported
             errors.append(f"{where}: {{{{{m.group(1)}}}}}: {type(e).__name__}: {e}")
             return m.group(0)
@@ -177,7 +154,7 @@ def sources_md(used: set[str]) -> str:
         v = value(name)
         shown = repr(v) if isinstance(v, str) else (f"{v:.0f}" if float(v).is_integer() else repr(v))
         src = REGISTRY[name].source.replace("|", "\\|")
-        out.append(f"| `{name}` | {shown} | {REGISTRY[name].kind} | {src} |")
+        out.append(f'| <a id="{name}"></a>`{name}` | {shown} | {REGISTRY[name].kind} | {src} |')
     return "\n".join(out) + "\n"
 
 
@@ -191,8 +168,7 @@ def main() -> None:
     templates = {tpl: (TEMPLATES / tpl).read_text(encoding="utf-8") for tpl in OUTPUTS}
     for tpl, out in OUTPUTS.items():
         text = templates[tpl]
-        text = fill_sources(text, out, errors, f"docs/templates/{tpl}")
-        rendered[out] = render(text, errors, f"docs/templates/{tpl}")
+        rendered[out] = render(text, errors, f"docs/templates/{tpl}", out)
         if args.check:
             errors += [f"docs/templates/{tpl}:{line}: hand-typed number {lit!r}"
                        for line, lit in hand_typed(text)]

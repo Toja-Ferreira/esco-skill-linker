@@ -32,10 +32,8 @@ data/
 └── processed/         gitignored; derived tables written by src/ingest
 ```
 
-Each language folder holds the full distribution as downloaded (18 files in Portuguese, 19 in English). The extra files are
+Each language folder holds the full distribution as downloaded ([18](../results/dataset_profile.md "from dataset_profile.md") files in Portuguese, [19](../results/dataset_profile.md "from dataset_profile.md") in English). The extra files are
 kept unmodified rather than pruned, so the folder matches what the portal serves.
-
-Figures in this section come from [`dataset_profile.md`](../results/dataset_profile.md).
 
 ## Verification
 
@@ -86,9 +84,7 @@ though the data dictionary declares both as `skos:prefLabel`. Only `occupationUr
 concept files.
 
 **`definition` and `scopeNote` are empty in Portuguese and sparse in English**: in
-English, 2 skills carry a `definition` and 235 a `scopeNote`, and 8 and 309 occupations do. `description` is the only long-form text field with content in both languages.
-
-Figures in this section come from [`dataset_profile.md`](../results/dataset_profile.md).
+English, [2](../results/dataset_profile.md "from dataset_profile.md") skills carry a `definition` and [235](../results/dataset_profile.md "from dataset_profile.md") a `scopeNote`, and [8](../results/dataset_profile.md "from dataset_profile.md") and [309](../results/dataset_profile.md "from dataset_profile.md") occupations do. `description` is the only long-form text field with content in both languages.
 
 ## Other distributions
 

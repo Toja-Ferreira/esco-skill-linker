@@ -96,8 +96,6 @@ fusion, usually presented as the safe parameter-free default, failed to beat its
 
 Full analysis in [`results/README.md`](results/README.md).
 
-{{sources}}
-
 ## The problem
 
 Course units are described in prose: learning outcomes, syllabus text, competence statements.
@@ -106,8 +104,6 @@ comparable across institutions, and usable for guidance and matching.
 
 The retrieval task: given a short free-text learning outcome, return the ESCO skill and
 knowledge concepts it corresponds to, from a candidate space of {{data.skills:,.0f}} concepts.
-
-{{sources}}
 
 ## The central question
 
@@ -137,8 +133,6 @@ gap survives every later method, including both LLM rerankers, and remains unexp
 A second question follows from the deployment setting. Because course documentation exists in
 both languages, the practical question is not which language is better but whether using both
 beats using either.
-
-{{sources}}
 
 ## Prior art
 
@@ -199,8 +193,6 @@ and per-language numbers reported separately.
 - Linking performed best in the native language, rather than via translation into English.
 - Language-proficiency skills were called out as a weak spot, which is why ESCO's
   language-skill concepts are treated as their own slice.
-
-{{sources}}
 
 ## Scope
 
@@ -326,8 +318,6 @@ that membership. `broaderRelationsSkillPillar`, `skillGroups` and `skillsHierarc
 relevant only for the abstraction experiment, and `skillSkillRelations` only for query
 expansion.
 
-{{sources}}
-
 ## Benchmark design
 
 **Queries:** ESCO occupation descriptions.
@@ -386,8 +376,6 @@ ESCO assigns a stable URI per concept across all languages. The same occupation 
 Portuguese and in English has an identical gold set, so the per-language delta is measurable
 directly, with no translation step and no annotation cost.
 
-{{sources}}
-
 ## Approaches compared
 
 Each scored on the same frozen split, with latency and cost recorded alongside quality.
@@ -423,8 +411,6 @@ independent.
 
 Because per-query results are recorded per language against the same occupation URIs, fusion is
 an analysis over existing runs rather than a separate retrieval pipeline.
-
-{{sources}}
 
 ## Limitations
 
@@ -463,8 +449,6 @@ an analysis over existing runs rather than a separate retrieval pipeline.
   deterministic at temperature 0: two identical runs differed by up to {{deepseek.rerun.max_drift:.4f}} nDCG@10, small
   against its {{llm.ds_minus_qwen.en.mean:.2f}} lead over the local model, but enough that the figures cannot be reproduced
   exactly.
-
-{{sources}}
 
 ## Repository layout
 
@@ -561,8 +545,6 @@ and each further query costs only its own retrieval. Every result shows the skil
 both languages, since an ESCO concept keeps one URI across all of them. The first run in each
 language embeds all {{data.skills:,.0f}} skills, which takes a minute or two on a GPU; later runs read the
 cached embeddings.
-
-{{sources}}
 
 ## Design notes
 

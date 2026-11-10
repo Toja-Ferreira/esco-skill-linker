@@ -15,21 +15,21 @@ Portuguese-focused, evaluated against English as the comparison language.
 Portuguese retrieves worse than English, and the reason is not what the averages suggest.
 
 Under lexical retrieval the two languages place a correct skill at the same median rank. The
-22% aggregate gap is produced by the worst 5 to 10% of queries, where the occupation
+[22%](results/bm25_stopwords.md "from bm25_stopwords.md") aggregate gap is produced by the worst 5 to 10% of queries, where the occupation
 description and its gold skills use different Portuguese words for the same thing. A punch
 press is a *puncionadora* in one record and a *prensa biela-manivela* in the other, so they
-share no tokens at all and the best gold skill falls to rank 478. English says "punch press" on
-both sides and retrieves it at rank 2. The effect is severe where it occurs and rare enough to
+share no tokens at all and the best gold skill falls to rank [478](results/score_distribution.md "from score_distribution.md"). English says "punch press" on
+both sides and retrieves it at rank [2](results/score_distribution.md "from score_distribution.md"). The effect is severe where it occurs and rare enough to
 leave no trace in aggregate vocabulary overlap, which is why several averaged measurements
 found nothing.
 
 That diagnosis made a prediction, recorded before the dense retrieval runs: embeddings do not
 need *cabedal* and *couro* to be the same string, so they should compress the Portuguese tail
-rather than lift the median. They did. The Portuguese failure rate falls from 25.2% to 15.3%,
+rather than lift the median. They did. The Portuguese failure rate falls from [25.2%](results/dense_vs_lexical.md "from dense_vs_lexical.md") to [15.3%](results/dense_vs_lexical.md "from dense_vs_lexical.md"),
 the top of the distribution barely moves, and per-query gains concentrate in exactly the
 queries where lexical matching failed.
 
-608 held-out occupation descriptions against all 13,939 skills:
+[608](results/split_profile.md "from split_profile.md") held-out occupation descriptions against all [13,939](results/dataset_profile.md "from dataset_profile.md") skills:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="results/figures/systems_dark.svg">
@@ -38,43 +38,43 @@ queries where lexical matching failed.
 
 | method | English | Portuguese | gap | gap, relative |
 |---|---:|---:|---:|---:|
-| BM25, stemmed, stopwords removed | 0.325 | 0.266 | 0.059 | +22.3% |
-| Bi-encoder, EmbeddingGemma-300M | 0.358 | 0.328 | 0.029 | +8.9% |
-| Hybrid, weighted score fusion | 0.379 | 0.344 | 0.035 | +10.3% |
-| Hybrid, reranked by Qwen3-4B (local) | 0.415 | 0.379 | 0.036 | +9.5% |
-| **Hybrid, reranked by DeepSeek (API)** | **0.446** | **0.412** | 0.034 | +8.3% |
+| BM25, stemmed, stopwords removed | [0.325](results/bm25_stopwords.md "from bm25_stopwords.md") | [0.266](results/bm25_stopwords.md "from bm25_stopwords.md") | [0.059](results/bm25_stopwords.md "from bm25_stopwords.md") | [+22.3%](results/bm25_stopwords.md "from bm25_stopwords.md") |
+| Bi-encoder, EmbeddingGemma-300M | [0.358](results/bi_encoder.md "from bi_encoder.md") | [0.328](results/bi_encoder.md "from bi_encoder.md") | [0.029](results/bi_encoder.md "from bi_encoder.md") | [+8.9%](results/bi_encoder.md "from bi_encoder.md") |
+| Hybrid, weighted score fusion | [0.379](results/rerank.md "from rerank.md") | [0.344](results/rerank.md "from rerank.md") | [0.035](results/rerank.md "from rerank.md") | [+10.3%](results/rerank.md "from rerank.md") |
+| Hybrid, reranked by Qwen3-4B (local) | [0.415](results/llm_rerank_qwen3-4b-local.md "from llm_rerank_qwen3-4b-local.md") | [0.379](results/llm_rerank_qwen3-4b-local.md "from llm_rerank_qwen3-4b-local.md") | [0.036](results/llm_rerank_qwen3-4b-local.md "from llm_rerank_qwen3-4b-local.md") | [+9.5%](results/llm_rerank_qwen3-4b-local.md "from llm_rerank_qwen3-4b-local.md") |
+| **Hybrid, reranked by DeepSeek (API)** | **[0.446](results/llm_rerank_deepseek.md "from llm_rerank_deepseek.md")** | **[0.412](results/llm_rerank_deepseek.md "from llm_rerank_deepseek.md")** | [0.034](results/llm_rerank_deepseek.md "from llm_rerank_deepseek.md") | [+8.3%](results/llm_rerank_deepseek.md "from llm_rerank_deepseek.md") |
 
 nDCG@10. The gap is English minus Portuguese. Both columns matter: a relative gap shrinks
 whenever both languages improve, even if the distance between them stays the same.
 
-Dense retrieval removes about half of the language gap (51% in absolute terms, 60% as a
-relative gap), and does so asymmetrically: Portuguese gains 23.5% where English gains 10.0%. A study reporting only the English figure
-would have called that a modest 10% improvement and missed what it was doing.
+Dense retrieval removes about half of the language gap ([51%](results/bi_encoder.md "from bi_encoder.md, bm25_stopwords.md") in absolute terms, [60%](results/bi_encoder.md "from bi_encoder.md, bm25_stopwords.md") as a
+relative gap), and does so asymmetrically: Portuguese gains [23.5%](results/bi_encoder.md "from bi_encoder.md, bm25_stopwords.md") where English gains [10.0%](results/bi_encoder.md "from bi_encoder.md, bm25_stopwords.md"). A study reporting only the English figure
+would have called that a modest [10%](results/bi_encoder.md "from bi_encoder.md, bm25_stopwords.md") improvement and missed what it was doing.
 
-Combining lexical with dense retrieval adds another 6% in English and 5% in Portuguese on top, but widens the language gap
+Combining lexical with dense retrieval adds another [6%](results/rerank.md "from rerank.md, bi_encoder.md") in English and [5%](results/rerank.md "from rerank.md, bi_encoder.md") in Portuguese on top, but widens the language gap
 again, because BM25 helps English more than Portuguese. The best-performing system is not the
 most language-equitable one.
 
 After fusion the bottleneck moved to ordering. A flawless reranker over the same top-100
-candidates would reach 0.797 in Portuguese and 0.821 in English, more than double the best
-first stage, and a correct skill already sits in the top 10 for roughly 91% of Portuguese queries and 93% of English ones. Two
+candidates would reach [0.797](results/rerank.md "from rerank.md") in Portuguese and [0.821](results/rerank.md "from rerank.md") in English, more than double the best
+first stage, and a correct skill already sits in the top 10 for roughly [91%](results/rerank.md "from rerank.md") of Portuguese queries and [93%](results/rerank.md "from rerank.md") of English ones. Two
 off-the-shelf multilingual cross-encoders captured none of that headroom. Both separate correct
-from incorrect candidates well above chance and reproduce 82% to 103% of the first stage's
-ordering quality, so they work, but they never improve on it, while adding 20 to 142 ms per
+from incorrect candidates well above chance and reproduce [82%](results/rerank.md "from rerank.md, rerank_qwen3-0.6b.md") to [103%](results/rerank.md "from rerank.md, rerank_qwen3-0.6b.md") of the first stage's
+ordering quality, so they work, but they never improve on it, while adding [20](results/rerank.md "from rerank.md, rerank_qwen3-0.6b.md") to [142](results/rerank.md "from rerank.md, rerank_qwen3-0.6b.md") ms per
 query on top of the first stage.
 
 Listwise LLM reranking does improve on it. The model sees the description and all 20 top
 candidates in one prompt and picks the best 10, so it can compare candidates against each
-other, which a cross-encoder scoring one pair at a time cannot. A local Qwen3-4B adds about 10%
-in both languages. DeepSeek's API model (`deepseek-flash`) adds 18% to 20%, beats the local
-model on the same queries by about 0.03 nDCG@10 in both languages, and captures about a third
+other, which a cross-encoder scoring one pair at a time cannot. A local Qwen3-4B adds about [10%](results/llm_rerank_qwen3-4b-local.md "from llm_rerank_qwen3-4b-local.md, rerank.md")
+in both languages. DeepSeek's API model (`deepseek-flash`) adds [18%](results/llm_rerank_deepseek.md "from llm_rerank_deepseek.md, rerank.md") to [20%](results/llm_rerank_deepseek.md "from llm_rerank_deepseek.md, rerank.md"), beats the local
+model on the same queries by about [0.03](results/llm_compare.md "from llm_compare.md") nDCG@10 in both languages, and captures about a third
 of the headroom available at that depth against the local model's sixth. The whole experiment,
-about 2,000 reranked descriptions, cost $0.37 and ran more than ten times faster than the local
+about [2,000](results/split_profile.md "from split_profile.md") reranked descriptions, cost $[0.37](results/figure_sources.md#deepseek.cost_usd "recorded in figure_sources.md") and ran more than ten times faster than the local
 model on a laptop GPU. Paying bought quality as well as speed. What the local model offers in
 return is reproducibility: it gave identical scores on a rerun, where the API moved by up to
-0.0015.
+[0.0015](results/llm_rerank_deepseek.md "from llm_rerank_deepseek.md").
 
-No reranker narrowed the language gap. English leads by about 0.035 nDCG@10 before reranking
+No reranker narrowed the language gap. English leads by about [0.035](results/rerank.md "from rerank.md") nDCG@10 before reranking
 and after either model, and the paired intervals on the change all include zero. The oracle
 predicts this: at a depth of 20 even perfect ordering would leave the gap as it is, and
 perfect ordering of the full top 100 would remove only about a third of it. An earlier version
@@ -86,17 +86,15 @@ relative gaps at very different score levels, and the absolute figures do not su
   <img alt="English minus Portuguese nDCG@10 per system. The gap halves from BM25 to dense retrieval, then stays near 0.035 through fusion and both rerankers, with overlapping intervals. Perfect ordering of the top 20 would not shrink it; of the top 100, it would fall to 0.024." src="results/figures/language_gap_light.svg">
 </picture>
 
-Three results worth noting alongside. A 308M model beat a 4B one in both languages, and
+Three results worth noting alongside. A [308](results/figure_sources.md#model.embeddinggemma.params_m "recorded in figure_sources.md")M model beat a [4](results/figure_sources.md#model.qwen3emb.params_b "recorded in figure_sources.md")B one in both languages, and
 `multilingual-e5-base` lost to BM25 in both, so the checkpoint matters more than the
 architecture. Absent stopword handling turned out to cost Portuguese about a quarter of the
 lexical gap, which was a flaw in this repository rather than in the data. And reciprocal rank
 fusion, usually presented as the safe parameter-free default, failed to beat its own inputs in
-four of five combinations, while weighted fusion with a dev-tuned weight succeeded in all
-five.
+[four](results/fusion.md "from fusion.md") of [five](results/fusion.md "from fusion.md") combinations, while weighted fusion with a dev-tuned weight succeeded in all
+[five](results/fusion.md "from fusion.md").
 
 Full analysis in [`results/README.md`](results/README.md).
-
-Figures in this section come from [`rerank.md`](results/rerank.md), [`bi_encoder.md`](results/bi_encoder.md), [`bm25_stopwords.md`](results/bm25_stopwords.md), [`llm_rerank_deepseek.md`](results/llm_rerank_deepseek.md), [`llm_rerank_qwen3-4b-local.md`](results/llm_rerank_qwen3-4b-local.md), [`rerank_qwen3-0.6b.md`](results/rerank_qwen3-0.6b.md), [`fusion.md`](results/fusion.md), [`score_distribution.md`](results/score_distribution.md), [`dense_vs_lexical.md`](results/dense_vs_lexical.md), [`split_profile.md`](results/split_profile.md), [`dataset_profile.md`](results/dataset_profile.md), [`llm_compare.md`](results/llm_compare.md) and constants recorded in [`figure_sources.md`](results/figure_sources.md).
 
 ## The problem
 
@@ -105,16 +103,14 @@ Labour market systems speak ESCO. Linking the two makes course content legible t
 comparable across institutions, and usable for guidance and matching.
 
 The retrieval task: given a short free-text learning outcome, return the ESCO skill and
-knowledge concepts it corresponds to, from a candidate space of 13,939 concepts.
-
-Figures in this section come from [`dataset_profile.md`](results/dataset_profile.md).
+knowledge concepts it corresponds to, from a candidate space of [13,939](results/dataset_profile.md "from dataset_profile.md") concepts.
 
 ## The central question
 
 The project started from an asymmetry in the data. ESCO's **descriptions are complete in both
-languages**: 100% of skills and occupations carry one in Portuguese and in English. ESCO's
-**alternative labels are not**: English skills carry 86,454 alt-labels, Portuguese skills carry
-3,632, a **23.8x gap**. The original question was whether dense retrieval could compensate for
+languages**: [100%](results/dataset_profile.md "from dataset_profile.md") of skills and occupations carry one in Portuguese and in English. ESCO's
+**alternative labels are not**: English skills carry [86,454](results/dataset_profile.md "from dataset_profile.md") alt-labels, Portuguese skills carry
+[3,632](results/dataset_profile.md "from dataset_profile.md"), a **[23.8](results/dataset_profile.md "from dataset_profile.md")x gap**. The original question was whether dense retrieval could compensate for
 that deficit in lexical surface forms.
 
 Measurement narrowed it. The label deficit is worth about a fifth of English's lexical quality
@@ -138,8 +134,6 @@ A second question follows from the deployment setting. Because course documentat
 both languages, the practical question is not which language is better but whether using both
 beats using either.
 
-Figures in this section come from [`dataset_profile.md`](results/dataset_profile.md).
-
 ## Prior art
 
 **This is not an unsolved problem, and this project does not claim to be novel in framing.**
@@ -148,14 +142,14 @@ The European Commission has run a three-phase pilot on exactly this task since 2
 
 | | Phase 2 (2020 to 2021) | Phase 3 (2022 to 2023) |
 |---|---|---|
-| Qualifications | 367, 9 languages | 443 mapped of 1038, 12 languages |
-| Selected concept ranked 1st | 30% | 44.65% |
-| In top 3 | 48% | 63.98% |
-| In top 5 | 56% | 70.35% |
-| In top 10 | 66% | not reported |
+| Qualifications | [367](results/figure_sources.md#pilot.p2.qualifications "recorded in figure_sources.md"), [9](results/figure_sources.md#pilot.p2.languages "recorded in figure_sources.md") languages | [443](results/figure_sources.md#pilot.p3.mapped "recorded in figure_sources.md") mapped of [1038](results/figure_sources.md#pilot.p3.qualifications "recorded in figure_sources.md"), [12](results/figure_sources.md#pilot.p3.languages "recorded in figure_sources.md") languages |
+| Selected concept ranked 1st | [30%](results/figure_sources.md#pilot.p2.top1 "recorded in figure_sources.md") | [44.65%](results/figure_sources.md#pilot.p3.top1 "recorded in figure_sources.md") |
+| In top 3 | [48%](results/figure_sources.md#pilot.p2.top3 "recorded in figure_sources.md") | [63.98%](results/figure_sources.md#pilot.p3.top3 "recorded in figure_sources.md") |
+| In top 5 | [56%](results/figure_sources.md#pilot.p2.top5 "recorded in figure_sources.md") | [70.35%](results/figure_sources.md#pilot.p3.top5 "recorded in figure_sources.md") |
+| In top 10 | [66%](results/figure_sources.md#pilot.p2.top10 "recorded in figure_sources.md") | not reported |
 
-Phase 3 covered DE, EL, ES, EN, FR, IT, LV, NL, PL, **PT**, SE and SI, produced 8,499 mapped
-learning outcomes generating 29,894 links, and compared three matching algorithms: a
+Phase 3 covered DE, EL, ES, EN, FR, IT, LV, NL, PL, **PT**, SE and SI, produced [8,499](results/figure_sources.md#pilot.p3.outcomes "recorded in figure_sources.md") mapped
+learning outcomes generating [29,894](results/figure_sources.md#pilot.p3.links "recorded in figure_sources.md") links, and compared three matching algorithms: a
 word2vec-based model, a multilingual Sentence-BERT model operating in the native language,
 and an English-only embedding model behind a translation step.
 
@@ -191,7 +185,7 @@ and per-language numbers reported separately.
 - Learning outcomes average **10 to 15 words**, so queries are short rather than document-length.
 - Both phases converged on **1 to 3 ESCO concepts per learning outcome** as the expected
   mapping density.
-- Only around 26% of phase 3 links were exact matches; *close match* dominated, meaning the
+- Only around [26%](results/figure_sources.md#pilot.p3.exact_share "recorded in figure_sources.md") of phase 3 links were exact matches; *close match* dominated, meaning the
   chosen concept typically does not fully cover the learning outcome's scope.
 - Linking worked **better for VET than for higher education**, and ESCO was judged granular
   enough that some level of abstraction is needed at EQF 5 to 7. University course units are
@@ -199,8 +193,6 @@ and per-language numbers reported separately.
 - Linking performed best in the native language, rather than via translation into English.
 - Language-proficiency skills were called out as a weak spot, which is why ESCO's
   language-skill concepts are treated as their own slice.
-
-Figures in this section are constants recorded in [`figure_sources.md`](results/figure_sources.md).
 
 ## Scope
 
@@ -244,16 +236,16 @@ measured by `src/ingest/build.py` and recorded in
 
 | | Count |
 |---|---|
-| Skills (all `KnowledgeSkillCompetence`, all `released`) | 13,939 |
-| of which skill/competence | 10,715 |
-| of which knowledge | 3,219 |
-| of which unlabelled | 5 |
-| Occupations (all `released`) | 3,039 |
+| Skills (all `KnowledgeSkillCompetence`, all `released`) | [13,939](results/dataset_profile.md "from dataset_profile.md") |
+| of which skill/competence | [10,715](results/dataset_profile.md "from dataset_profile.md") |
+| of which knowledge | [3,219](results/dataset_profile.md "from dataset_profile.md") |
+| of which unlabelled | [5](results/dataset_profile.md "from dataset_profile.md") |
+| Occupations (all `released`) | [3,039](results/dataset_profile.md "from dataset_profile.md") |
 
-Reusability level: sector-specific 6,655 · cross-sector 3,783 · occupation-specific 3,044 ·
-transversal 452 · blank 5.
+Reusability level: sector-specific [6,655](results/dataset_profile.md "from dataset_profile.md") · cross-sector [3,783](results/dataset_profile.md "from dataset_profile.md") · occupation-specific [3,044](results/dataset_profile.md "from dataset_profile.md") ·
+transversal [452](results/dataset_profile.md "from dataset_profile.md") · blank [5](results/dataset_profile.md "from dataset_profile.md").
 
-The 5 concepts with no `skillType` or `reuseLevel` are the DigComp competence areas
+The [5](results/dataset_profile.md "from dataset_profile.md") concepts with no `skillType` or `reuseLevel` are the DigComp competence areas
 (*segurança TIC*, *criação de conteúdos digitais*, and three others), container concepts from a
 framework layered onto ESCO. They are real concepts, kept in the index, and are not expected to
 appear as gold.
@@ -262,49 +254,49 @@ appear as gold.
 
 | Field | PT skills | EN skills |
 |---|---|---|
-| `description` | 13,939 (100%) | 13,939 (100%) |
-| `altLabels`, concepts covered | 1,126 (8.1%) | 13,921 (99.9%) |
-| `altLabels`, total labels | 3,632 | **86,454** |
-| `definition` | 0 | 2 |
-| `scopeNote` | 0 | 235 |
+| `description` | [13,939](results/dataset_profile.md "from dataset_profile.md") ([100%](results/dataset_profile.md "from dataset_profile.md")) | [13,939](results/dataset_profile.md "from dataset_profile.md") ([100%](results/dataset_profile.md "from dataset_profile.md")) |
+| `altLabels`, concepts covered | [1,126](results/dataset_profile.md "from dataset_profile.md") ([8.1%](results/dataset_profile.md "from dataset_profile.md")) | [13,921](results/dataset_profile.md "from dataset_profile.md") ([99.9%](results/dataset_profile.md "from dataset_profile.md")) |
+| `altLabels`, total labels | [3,632](results/dataset_profile.md "from dataset_profile.md") | **[86,454](results/dataset_profile.md "from dataset_profile.md")** |
+| `definition` | [0](results/dataset_profile.md "from dataset_profile.md") | [2](results/dataset_profile.md "from dataset_profile.md") |
+| `scopeNote` | [0](results/dataset_profile.md "from dataset_profile.md") | [235](results/dataset_profile.md "from dataset_profile.md") |
 
 `definition` and `scopeNote` are not used. Only English has them, so including them would add
 another English-only advantage.
 
 **The asymmetry is concentrated on the corpus side.** Occupations, which supply the queries,
-carry 8,924 Portuguese alt-labels against 30,387 English, a 3.4x gap, much of it gendered pairs
-(*Diretor técnico / Diretora técnica*). Skills, the retrieval corpus, differ by 23.8x.
+carry [8,924](results/dataset_profile.md "from dataset_profile.md") Portuguese alt-labels against [30,387](results/dataset_profile.md "from dataset_profile.md") English, a [3.4](results/dataset_profile.md "from dataset_profile.md")x gap, much of it gendered pairs
+(*Diretor técnico / Diretora técnica*). Skills, the retrieval corpus, differ by [23.8](results/dataset_profile.md "from dataset_profile.md")x.
 Portuguese queries are therefore only mildly disadvantaged while the documents being searched
 are severely so, which is where a lexical method needs surface forms to match against.
 
-Every concept carries a preferred label in both languages: 13,939 skills and 3,039
+Every concept carries a preferred label in both languages: [13,939](results/dataset_profile.md "from dataset_profile.md") skills and [3,039](results/dataset_profile.md "from dataset_profile.md")
 occupations, with no gaps on either side. Any Portuguese to English performance gap is
 therefore a genuine effect rather than an artefact of missing labels.
 
 ### Ground truth
 
-126,051 occupation to skill relations, identical across both language distributions. These
+[126,051](results/dataset_profile.md "from dataset_profile.md") occupation to skill relations, identical across both language distributions. These
 correspond to the ESCO model properties `relatedEssentialSkill` and `relatedOptionalSkill`.
 
 | | Count |
 |---|---|
-| `essential` | 67,600 |
-| `optional` | 58,451 |
-| Occupations with ≥1 essential skill | 3,039 of 3,039 (100%) |
-| Distinct skills appearing as gold | 11,378 of 13,939 (81.6%) |
-| Skills never appearing as gold | 2,561 |
+| `essential` | [67,600](results/dataset_profile.md "from dataset_profile.md") |
+| `optional` | [58,451](results/dataset_profile.md "from dataset_profile.md") |
+| Occupations with ≥1 essential skill | [3,039](results/dataset_profile.md "from dataset_profile.md") of [3,039](results/dataset_profile.md "from dataset_profile.md") ([100%](results/dataset_profile.md "from dataset_profile.md")) |
+| Distinct skills appearing as gold | [11,378](results/dataset_profile.md "from dataset_profile.md") of [13,939](results/dataset_profile.md "from dataset_profile.md") ([81.6%](results/dataset_profile.md "from dataset_profile.md")) |
+| Skills never appearing as gold | [2,561](results/dataset_profile.md "from dataset_profile.md") |
 
-Essential skills per occupation: mean 22.2, median 19, min 3, max 99.
+Essential skills per occupation: mean [22.2](results/dataset_profile.md "from dataset_profile.md"), median [19](results/dataset_profile.md "from dataset_profile.md"), min [3](results/dataset_profile.md "from dataset_profile.md"), max [99](results/dataset_profile.md "from dataset_profile.md").
 
-All 13,939 skills stay in the retrieval index. The 2,561 that never appear as gold serve as
+All [13,939](results/dataset_profile.md "from dataset_profile.md") skills stay in the retrieval index. The [2,561](results/dataset_profile.md "from dataset_profile.md") that never appear as gold serve as
 distractors, which is the realistic setting and a stricter one than indexing only
 gold-eligible concepts.
 
 ### Known defects in the release
 
-**Concepts are exported more than once.** 21 skills and 4 occupations appear as two rows each,
+**Concepts are exported more than once.** [21](results/dataset_profile.md "from dataset_profile.md") skills and [4](results/dataset_profile.md "from dataset_profile.md") occupations appear as two rows each,
 differing only in `modifiedDate`; all other fields are identical. A loader that does not
-deduplicate will carry 13,960 skill rows for 13,939 concepts and double-count the affected
+deduplicate will carry [13,960](results/dataset_profile.md "from dataset_profile.md") skill rows for [13,939](results/dataset_profile.md "from dataset_profile.md") concepts and double-count the affected
 queries. `src/ingest/build.py` collapses them and raises if a URI ever appears twice with
 genuinely conflicting attributes.
 
@@ -319,14 +311,12 @@ relation-file labels would silently produce an English benchmark labelled as Por
 Three per language: `skills_<lang>.csv`, `occupations_<lang>.csv`,
 `occupationSkillRelations_<lang>.csv`.
 
-The distribution ships 18 files in Portuguese and 19 in English. The collection files
+The distribution ships [18](results/dataset_profile.md "from dataset_profile.md") files in Portuguese and [19](results/dataset_profile.md "from dataset_profile.md") in English. The collection files
 (`transversalSkillsCollection`, `greenSkillsCollection`, `digitalSkillsCollection` and
 similar) are redundant here because `reuseLevel` and `inScheme` on `skills` already encode
 that membership. `broaderRelationsSkillPillar`, `skillGroups` and `skillsHierarchy` become
 relevant only for the abstraction experiment, and `skillSkillRelations` only for query
 expansion.
-
-Figures in this section come from [`dataset_profile.md`](results/dataset_profile.md).
 
 ## Benchmark design
 
@@ -370,7 +360,7 @@ the only published numbers in this space.
   caused by missing text from the part that is not.
 - **Gold set size:** quartiles by number of essential skills, since the benchmark's query shape
   differs from the target application's.
-- **Transversal:** with and without the 452 transversal skills, which flood similarity-based
+- **Transversal:** with and without the [452](results/dataset_profile.md "from dataset_profile.md") transversal skills, which flood similarity-based
   rankings.
 - **Concept type:** knowledge against skill/competence.
 - **Sector:** via `iscoGroup` and `naceCode`, both fully populated on occupations.
@@ -386,8 +376,6 @@ ESCO assigns a stable URI per concept across all languages. The same occupation 
 Portuguese and in English has an identical gold set, so the per-language delta is measurable
 directly, with no translation step and no annotation cost.
 
-Figures in this section come from [`dataset_profile.md`](results/dataset_profile.md).
-
 ## Approaches compared
 
 Each scored on the same frozen split, with latency and cost recorded alongside quality.
@@ -400,7 +388,7 @@ Each scored on the same frozen split, with latency and cost recorded alongside q
 6. **Listwise LLM reranking**, a local model against a paid API, on quality, latency and cost
 
 Late interaction (ColBERT-style, one vector per token) was planned and dropped. The oracle in
-experiment 14 shows the existing shortlist already supports nDCG@10 of about 0.81, so the
+experiment 14 shows the existing shortlist already supports nDCG@10 of about [0.81](results/rerank.md "from rerank.md"), so the
 bottleneck is ordering, and a different retriever would not address it.
 
 ### Why bilingual fusion
@@ -415,36 +403,34 @@ independent: a system can retrieve using the English text and present the Portug
 the same concept.
 
 The headroom is measured rather than assumed. Under the best bi-encoder, Portuguese fails on
-15.3% of queries and English on 12.3%, but only 9.0% fail in both. So 6.2% of occupations are
-Portuguese-only failures that the English text could recover, and 3.3% the reverse. Per-query
-scores correlate 0.825 between the languages, so most failures are shared and fusion's ceiling
+[15.3%](results/residual_gap.md "from residual_gap.md") of queries and English on [12.3%](results/residual_gap.md "from residual_gap.md"), but only [9.0%](results/residual_gap.md "from residual_gap.md") fail in both. So [6.2%](results/residual_gap.md "from residual_gap.md") of occupations are
+Portuguese-only failures that the English text could recover, and [3.3%](results/residual_gap.md "from residual_gap.md") the reverse. Per-query
+scores correlate [0.825](results/residual_gap.md "from residual_gap.md") between the languages, so most failures are shared and fusion's ceiling
 is modest. It is worth measuring because that ceiling is real, not because the languages are
 independent.
 
 Because per-query results are recorded per language against the same occupation URIs, fusion is
 an analysis over existing runs rather than a separate retrieval pipeline.
 
-Figures in this section come from [`residual_gap.md`](results/residual_gap.md) and [`rerank.md`](results/rerank.md).
-
 ## Limitations
 
 - **Occupation to skill links describe work, not teaching.** Performance on this benchmark is
   a proxy for the course-documentation use case rather than a measurement of it.
 - **Query shape differs from the target use case.** Benchmark queries are occupation
-  descriptions with a mean of 22.5 gold skills each. Real learning outcomes run 10 to 15 words
+  descriptions with a mean of [22.5](results/split_profile.md "from split_profile.md") gold skills each. Real learning outcomes run 10 to 15 words
   with 1 to 3 concepts. [Experiment 02](results/README.md) tests how far this matters by
   slicing results into gold-set-size quartiles: the ranking of methods and the size of the
   Portuguese deficit are stable across quartiles, and performance on the smallest bucket
-  (median 12 gold skills) matches the pooled figures. Query *length* remains untested, since
+  (median [12](results/gold_size_slice.md "from gold_size_slice.md") gold skills) matches the pooled figures. Query *length* remains untested, since
   every query here is a full occupation description.
-- **Any lexical PT to EN gap is partly a corpus artefact.** With 23.8x fewer alternative labels
+- **Any lexical PT to EN gap is partly a corpus artefact.** With [23.8](results/dataset_profile.md "from dataset_profile.md")x fewer alternative labels
   on the skills being retrieved, a BM25 gap over labels measures ESCO's label coverage as well
   as the method. [Experiment 01](results/README.md) separates the two: adding alternative
   labels is worth about a fifth of English's quality and nothing measurable in Portuguese,
   while the gap on description-only retrieval, where coverage is equal, has a different cause
   entirely.
-- **Recall is bounded well below 1.** With around 22 gold skills per query, recall@10 cannot
-  exceed 0.543 on this split. Absolute recall figures should be read against the ceilings
+- **Recall is bounded well below 1.** With around [22](results/split_profile.md "from split_profile.md") gold skills per query, recall@10 cannot
+  exceed [0.543](results/bm25.md "from bm25.md, split_profile.md") on this split. Absolute recall figures should be read against the ceilings
   reported alongside them.
 - **Cross-language comparisons are partly confounded with preprocessing quality.** Both
   languages run through identical code and identical parameters, audited in
@@ -459,12 +445,10 @@ Figures in this section come from [`residual_gap.md`](results/residual_gap.md) a
   relevance. Larger models memorise more, so this weighs more on DeepSeek's result than on
   Qwen's. The benchmark cannot separate the two.
 - **The API model is a moving target.** `deepseek-chat` is an alias the provider repoints; the
-  reported run was served by `deepseek-flash` on 9 November 2026. The API is also not
-  deterministic at temperature 0: two identical runs differed by up to 0.0015 nDCG@10, small
-  against its 0.03 lead over the local model, but enough that the figures cannot be reproduced
+  reported run was served by `deepseek-flash` on [9 November 2026](results/llm_rerank_deepseek.md "from llm_rerank_deepseek.md"). The API is also not
+  deterministic at temperature 0: two identical runs differed by up to [0.0015](results/llm_rerank_deepseek.md "from llm_rerank_deepseek.md") nDCG@10, small
+  against its [0.03](results/llm_compare.md "from llm_compare.md") lead over the local model, but enough that the figures cannot be reproduced
   exactly.
-
-Figures in this section come from [`split_profile.md`](results/split_profile.md), [`llm_rerank_deepseek.md`](results/llm_rerank_deepseek.md), [`gold_size_slice.md`](results/gold_size_slice.md), [`dataset_profile.md`](results/dataset_profile.md), [`bm25.md`](results/bm25.md), [`llm_compare.md`](results/llm_compare.md) and constants recorded in [`figure_sources.md`](results/figure_sources.md).
 
 ## Repository layout
 
@@ -559,10 +543,8 @@ the full list.
 Without a learning outcome it starts an interactive prompt, so the indexes and models load once
 and each further query costs only its own retrieval. Every result shows the skill's label in
 both languages, since an ESCO concept keeps one URI across all of them. The first run in each
-language embeds all 13,939 skills, which takes a minute or two on a GPU; later runs read the
+language embeds all [13,939](results/dataset_profile.md "from dataset_profile.md") skills, which takes a minute or two on a GPU; later runs read the
 cached embeddings.
-
-Figures in this section come from [`dataset_profile.md`](results/dataset_profile.md).
 
 ## Design notes
 
