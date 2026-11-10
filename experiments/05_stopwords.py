@@ -30,8 +30,13 @@ on/off. Writes:
     results/bm25_stopwords_summary.csv
     results/bm25_stopwords.md
 
+With `--split dev`, writes `bm25_stopwords_summary_dev.csv` and
+`bm25_stopwords_dev.md` instead, so the test results are left alone, and no
+per-query file: dev is for checking which configuration selection would pick.
+
 Usage:
     python -m experiments.05_stopwords
+    python -m experiments.05_stopwords --split dev
 """
 
 from __future__ import annotations
@@ -91,15 +96,16 @@ def main() -> None:
                     help="rebuild the markdown report from the saved summary "
                          "CSV without re-running retrieval")
     args = ap.parse_args()
+    sfx = "" if args.split == "test" else f"_{args.split}"
 
     if args.render_only:
-        summary = pd.read_csv(RESULTS / "bm25_stopwords_summary.csv")
+        summary = pd.read_csv(RESULTS / f"bm25_stopwords_summary{sfx}.csv")
         splits = pd.read_csv(BENCHMARK / "splits.csv")
         n_queries = int((splits["split"] == args.split).sum())
         n_skills = len(pd.read_parquet(PROCESSED / "skills.parquet"))
-        (RESULTS / "bm25_stopwords.md").write_text(
+        (RESULTS / f"bm25_stopwords{sfx}.md").write_text(
             render(summary, args.split, n_queries, n_skills), encoding="utf-8")
-        print("rewrote results/bm25_stopwords.md from the saved summary")
+        print(f"rewrote results/bm25_stopwords{sfx}.md from the saved summary")
         return
 
     splits, texts, labels, skills, gold = load(args.split)
@@ -157,16 +163,16 @@ def main() -> None:
                           f"({index.mean_length:.0f} tok/doc)")
 
     RESULTS.mkdir(exist_ok=True)
-    pd.DataFrame(rows).to_csv(
-        RESULTS / "bm25_stopwords_per_query.csv", index=False)
+    if not sfx:
+        pd.DataFrame(rows).to_csv(
+            RESULTS / "bm25_stopwords_per_query.csv", index=False)
+        print("\nwrote results/bm25_stopwords_per_query.csv")
     summary = pd.DataFrame(summaries)
-    summary.to_csv(RESULTS / "bm25_stopwords_summary.csv", index=False)
-    (RESULTS / "bm25_stopwords.md").write_text(
+    summary.to_csv(RESULTS / f"bm25_stopwords_summary{sfx}.csv", index=False)
+    (RESULTS / f"bm25_stopwords{sfx}.md").write_text(
         render(summary, args.split, len(splits), len(skills)), encoding="utf-8")
-
-    print(f"\nwrote results/bm25_stopwords_per_query.csv")
-    print(f"wrote results/bm25_stopwords_summary.csv")
-    print(f"wrote results/bm25_stopwords.md")
+    print(f"wrote results/bm25_stopwords_summary{sfx}.csv")
+    print(f"wrote results/bm25_stopwords{sfx}.md")
 
 
 def render(s: pd.DataFrame, split: str, n_queries: int, n_skills: int) -> str:

@@ -129,9 +129,11 @@ def constant(name: str, v: float, source: str) -> None:
 # The generated report that presents each CSV, for links meant for readers.
 REPORTS = {
     "bi_encoder": "bi_encoder.md", "bm25_per_query": "bm25.md", "bm25_summary": "bm25.md",
+    "bm25_stopwords_summary_dev": "bm25_stopwords_dev.md",
     "bm25_stopwords": "bm25_stopwords.md", "bm25_sweep_dev": "bm25_sweep.md",
     "bm25_tuned_test": "bm25_sweep.md", "dense_vs_lexical": "dense_vs_lexical.md",
-    "fusion": "fusion.md", "gold_size_slice": "gold_size_slice.md",
+    "fusion_rrf_tuned": "fusion_rrf_tuned.md", "fusion": "fusion.md",
+    "gold_size_slice": "gold_size_slice.md",
     "idf_band_overlap": "idf_band_overlap.md", "lexical_overlap": "lexical_overlap.md",
     "llm_compare": "llm_compare.md", "residual_gap": "residual_gap.md",
     "score_distribution": "score_distribution.md", "weighted_overlap": "weighted_overlap.md",
@@ -254,6 +256,32 @@ for lang in LANGS:
                 for m in ("ndcg10", "mrr"):
                     lookup(f"{key}.{m}", "bm25_stopwords_summary.csv", METRICS[m], **where)
                 lookup(f"{key}.tokens", "bm25_stopwords_summary.csv", "mean_doc_tokens", **where)
+
+# The same grid on dev (experiment 05 --split dev), to check the baseline's
+# configuration is what dev would select. Raises if dev's choice ever differs.
+BDEV = "bm25_stopwords_summary_dev.csv"
+BASELINE_CONFIG = ("labels_desc", "stemmed", "removed")
+
+
+def dev_ranked(lang: str) -> pd.DataFrame:
+    d = read_csv(BDEV).query("language == @lang").sort_values("ndcg@10", ascending=False)
+    if tuple(d.iloc[0][["variant", "stemming", "stopwords"]]) != BASELINE_CONFIG:
+        raise ValueError(f"dev selects {tuple(d.iloc[0][['variant', 'stemming', 'stopwords']])} "
+                         f"in {lang}, not the baseline configuration {BASELINE_CONFIG}")
+    return d
+
+
+for lang in LANGS:
+    for col, key in (("ndcg@10", "ndcg10"), ("ndcg@10_lo", "ndcg10_lo"), ("ndcg@10_hi", "ndcg10_hi")):
+        computed(f"bm25dev.{lang}.selected.{key}",
+                 f"`{BDEV}` [language={lang}] `{col}` of the top row by `ndcg@10`, checked to be "
+                 "labels_desc, stemmed, stopwords removed",
+                 lambda l=lang, c=col: float(dev_ranked(l).iloc[0][c]))
+    computed(f"bm25dev.{lang}.runner_up.ndcg10",
+             f"`{BDEV}` [language={lang}] `ndcg@10` of the second row by `ndcg@10`",
+             lambda l=lang: float(dev_ranked(l).iloc[1]["ndcg@10"]))
+    computed(f"bm25dev.{lang}.configs", f"rows of `{BDEV}` [language={lang}]",
+             lambda l=lang: float(len(dev_ranked(l))))
 
 # The reported BM25 baseline: labels_desc, stemmed, stopwords removed, defaults.
 NOTES.append(
@@ -561,6 +589,22 @@ for fusion in ("rrf", "wsf"):
     computed(f"fusion.{fusion}.combinations", f"rows of `{FP}` [fusion={fusion}]",
              lambda f=fusion: float(len(read_csv(FP).query("fusion == @f"))))
 formula("fusion.rrf.failed", "{fusion.rrf.combinations} - {fusion.rrf.cleared}")
+# RRF with k and run weights tuned on dev (experiment 13, --rrf-tuned).
+FRT = "fusion_rrf_tuned.csv"
+for combo, key in COMBOS.items():
+    for col in ("ndcg@10", "k", "weight", "mean_delta", "delta_lo", "delta_hi",
+                "vs_wsf_mean_delta", "vs_wsf_delta_lo", "vs_wsf_delta_hi"):
+        lookup(f"fusion.{key}.rrft.{col.replace('@', '')}", FRT, col,
+               combination=combo, fusion="rrf tuned")
+lookup("fusion.all_four.rrft.beta", FRT, "beta", combination="all four", fusion="rrf tuned")
+computed("fusion.rrft.cleared", f"rows of `{FRT}` [fusion=rrf tuned] with `delta_lo` > 0",
+         lambda: float((read_csv(FRT).query("fusion == 'rrf tuned'")["delta_lo"] > 0).sum()))
+computed("fusion.rrft.below_wsf", f"rows of `{FRT}` [fusion=rrf tuned] with `vs_wsf_delta_hi` < 0",
+         lambda: float((read_csv(FRT).query("fusion == 'rrf tuned'")["vs_wsf_delta_hi"] < 0).sum()))
+for agg in ("min", "max"):
+    computed(f"fusion.rrft.k.{agg}", f"{agg} of `{FRT}` [fusion=rrf tuned] `k`",
+             lambda a=agg: float(getattr(read_csv(FRT).query("fusion == 'rrf tuned'")["k"], a)()))
+constant("fusion.rrf.k_default", 60, "`RRF_K` in `src/retrieval/fusion.py`")
 H2H_KEYS = {
     ("all four (wsf)", "hybrid en (wsf)"): "all4wsf_vs_hybenwsf",
     ("all four (wsf)", "hybrid en (rrf)"): "all4wsf_vs_hybenrrf",
@@ -665,6 +709,17 @@ for key, comp in (("hybrid", "language gap, first stage"), ("qwen", "language ga
                   ("change.ds_minus_qwen", "gap change, DeepSeek (API) minus Qwen3-4B (local)")):
     for col in ("mean", "lo", "hi"):
         lookup(f"llm.gap.{key}.{col}", LC, col, comparison=comp, language="en-pt")
+# The gap through the first stage's inputs, paired on occupation (experiment 16).
+for key, comp in (("dense", "gap change, EmbeddingGemma minus BM25"),
+                  ("fusion", "gap change, first stage minus EmbeddingGemma"),
+                  ("hybrid_vs_bm25", "gap change, first stage minus BM25")):
+    for col in ("mean", "lo", "hi", "lost"):
+        lookup(f"gap.change.{key}.{col}", LC, col, comparison=comp, language="en-pt")
+for d in (10, 20, 50, 100):
+    for col in ("mean", "lo", "hi"):
+        lookup(f"gap.removed.oracle{d}.{col}", LC, col,
+               comparison=f"gap removed, oracle@{d}", language="en-pt")
+formula("gap.change.fusion_keeps", "{gap.change.hybrid_vs_bm25.mean} / {gap.change.dense.mean}")
 for lang in LANGS:
     formula(f"deepseek.over_qwen_gain.{lang}",
             f"({{deepseek.test.{lang}.ndcg10}} - {{hybrid.test.{lang}.ndcg10}}) / ({{qwen.test.{lang}.ndcg10}} - {{hybrid.test.{lang}.ndcg10}})")

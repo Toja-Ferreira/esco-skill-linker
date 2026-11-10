@@ -8,15 +8,18 @@ Two questions:
 
 1. **Does the API model rank better, or only faster?** The per-query difference
    in nDCG@10 between the two rerankers, with a paired bootstrap interval.
-2. **Does either model narrow the language gap?** Every occupation exists in
+2. **Does any stage narrow or widen the language gap?** Every occupation exists in
    both languages, so the gap is itself paired: English minus Portuguese for the
    same occupation. A change in that gap between two systems is a difference of
    differences, and gets its own interval. Comparing two relative gaps read off
    aggregate means would mix a change in the gap with a change in the
    denominator.
 
-Reads the per-query files experiment 15 wrote and recomputes the first stage
-from its runs, so nothing is copied by hand.
+Reads the per-query files experiments 05, 10, 14 and 15 wrote and recomputes the
+first stage from its runs, so nothing is copied by hand. BM25 and
+EmbeddingGemma are the two inputs to the first stage, in the configurations
+experiment 13 fuses, so the gap can be followed through every stage of the
+pipeline: lexical, dense, hybrid, reranked.
 
 Writes:
     results/llm_compare.csv
@@ -34,11 +37,15 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+exp13 = importlib.import_module("experiments.13_fusion")
 exp15 = importlib.import_module("experiments.15_llm_rerank")
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RESULTS = REPO_ROOT / "results"
 METRIC = "ndcg@10"
+DENSE_LABEL = "EmbeddingGemma"
+# Perfect ordering of the first stage's shortlist at these depths (experiment 14).
+ORACLE_DEPTHS = (10, 20, 50, 100)
 MODELS = {"qwen3-4b-local": "Qwen3-4B (local)", "deepseek": "DeepSeek (API)"}
 N_BOOT = 2000
 SEED = 42
@@ -57,12 +64,39 @@ def paired(diffs: np.ndarray) -> dict:
             "n": int(len(diffs))}
 
 
+def paired_share(removed: np.ndarray, base: np.ndarray) -> dict:
+    """Share of the mean of `base` that `removed` accounts for, a ratio of
+    means, with both resampled on the same queries."""
+    rng = np.random.default_rng(SEED)
+    idx = rng.integers(0, len(base), size=(N_BOOT, len(base)))
+    shares = removed[idx].mean(axis=1) / base[idx].mean(axis=1)
+    return {"mean": float(removed.mean() / base.mean()),
+            "lo": float(np.quantile(shares, 0.025)),
+            "hi": float(np.quantile(shares, 0.975)),
+            "won": float((removed > 0).mean()),
+            "lost": float((removed < 0).mean()),
+            "n": int(len(base))}
+
+
 def first_stage_scores(lang: str, test_uris: list[str], gold) -> dict:
     fused = exp15.first_stage(lang, "test")
     k = max(exp15.DEFAULT_KS)
     return {q: exp15.evaluate_query([d for d, _ in fused[q]][:k],
                                     gold[q])[METRIC]
             for q in test_uris if fused.get(q)}
+
+
+def per_query(file: str, **where) -> dict[str, dict[str, float]]:
+    """Per-query scores by language from a committed per-query file, for
+    the rows matching `where`."""
+    df = pd.read_csv(RESULTS / file)
+    for col, v in where.items():
+        df = df[df[col] == v]
+    out = {lang: dict(zip(sub["occupationUri"], sub[METRIC]))
+           for lang, sub in df.groupby("language")}
+    if any(len(v) != len(set(v)) for v in out.values()) or not out:
+        raise SystemExit(f"{file} {where}: expected one row per query")
+    return out
 
 
 def model_scores(model: str) -> dict[str, dict[str, float]]:
@@ -79,11 +113,20 @@ def main() -> None:
     splits, _, gold = exp15.load()
     test_uris = splits[splits["split"] == "test"]["conceptUri"].tolist()
 
+    # The first stage's inputs, as experiment 13 configures them: BM25 stemmed
+    # with stopwords removed (experiment 05), and the default dense model.
+    dense = exp13.DENSE_DEFAULT
     systems: dict[str, dict[str, dict[str, float]]] = {
+        "BM25": per_query("bm25_stopwords_per_query.csv", variant=exp13.BM25_VARIANT,
+                          stemming="stemmed", stopwords="removed"),
+        DENSE_LABEL: per_query("bi_encoder_per_query.csv", model=dense,
+                               variant=exp13.DENSE_VARIANT[dense]),
         "first stage": {lang: first_stage_scores(lang, test_uris, gold)
                         for lang in exp15.LANGUAGES}}
     for key, label in MODELS.items():
         systems[label] = model_scores(key)
+    for d in ORACLE_DEPTHS:
+        systems[f"oracle@{d}"] = per_query("rerank_oracle_per_query.csv", depth=d)
 
     rows = []
 
@@ -108,13 +151,22 @@ def main() -> None:
                      **paired(g), "relative": float(g.mean()) / pt_mean})
 
     # 3. Change in the gap between systems: a difference of differences.
-    order = ["first stage", b, a]
-    for i, j in [(0, 1), (0, 2), (1, 2)]:
-        lo_sys, hi_sys = order[i], order[j]
+    pairs = [("BM25", DENSE_LABEL), (DENSE_LABEL, "first stage"), ("BM25", "first stage"),
+             ("first stage", b), ("first stage", a), (b, a)]
+    for lo_sys, hi_sys in pairs:
         shared = sorted(set(gaps[lo_sys]) & set(gaps[hi_sys]))
         d = np.array([gaps[hi_sys][q] - gaps[lo_sys][q] for q in shared])
         rows.append({"comparison": f"gap change, {hi_sys} minus {lo_sys}",
                      "language": "en-pt", **paired(d)})
+
+    # 4. Share of the first stage's gap that perfect ordering removes.
+    base = gaps["first stage"]
+    for d in ORACLE_DEPTHS:
+        o = gaps[f"oracle@{d}"]
+        shared = sorted(set(base) & set(o))
+        b_arr = np.array([base[q] for q in shared])
+        rows.append({"comparison": f"gap removed, oracle@{d}", "language": "en-pt",
+                     **paired_share(b_arr - np.array([o[q] for q in shared]), b_arr)})
 
     out = pd.DataFrame(rows)
     RESULTS.mkdir(exist_ok=True)
@@ -148,7 +200,10 @@ def render(out: pd.DataFrame, cost: pd.DataFrame) -> str:
     w("# Local against API reranking\n")
     w("Both models rerank the same first stage at depth 20 on the same 608 "
       "test queries, so every comparison here is paired by query. Intervals "
-      "are 95% percentile bootstrap over queries.\n")
+      "are 95% percentile bootstrap over queries. The first stage is hybrid "
+      "weighted score fusion of BM25 and EmbeddingGemma (experiment 13); "
+      "those two inputs are included so the language gap can be followed "
+      "through every stage.\n")
 
     w("## Model against model\n")
     w("| language | DeepSeek minus Qwen3-4B, nDCG@10 (95% CI) | DeepSeek better | Qwen better |")
@@ -176,6 +231,17 @@ def render(out: pd.DataFrame, cost: pd.DataFrame) -> str:
     w("|---|---|")
     for _, r in out[out["comparison"].str.startswith("gap change")].iterrows():
         w(f"| {r['comparison'].removeprefix('gap change, ')} | {fmt(r)} |")
+    w("")
+
+    w("## Gap removed by perfect ordering\n")
+    w("The oracle sorts the first stage's top d candidates by true relevance "
+      "(experiment 14). Share removed is one minus the oracle's mean gap over "
+      "the first stage's, with both resampled on the same occupations.\n")
+    w("| depth | share of the gap removed (95% CI) |")
+    w("|---|---|")
+    for _, r in out[out["comparison"].str.startswith("gap removed")].iterrows():
+        w(f"| {r['comparison'].removeprefix('gap removed, oracle@')} "
+          f"| {r['mean']:.0%} [{r['lo']:.0%}, {r['hi']:.0%}] |")
     w("")
 
     if len(cost):

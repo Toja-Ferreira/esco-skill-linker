@@ -68,6 +68,15 @@ The registry is `experiments/figures.py`.
 | <a id="bm25.test.en.ndcg10"></a>`bm25.test.en.ndcg10` | 0.3251687624637038 | lookup | `bm25_stopwords_summary.csv` [language=en, variant=labels_desc, stemming=stemmed, stopwords=removed] `ndcg@10` |
 | <a id="bm25.test.pt.mrr"></a>`bm25.test.pt.mrr` | 0.5237089950315407 | lookup | `bm25_stopwords_summary.csv` [language=pt, variant=labels_desc, stemming=stemmed, stopwords=removed] `mrr` |
 | <a id="bm25.test.pt.ndcg10"></a>`bm25.test.pt.ndcg10` | 0.2658167724476431 | lookup | `bm25_stopwords_summary.csv` [language=pt, variant=labels_desc, stemming=stemmed, stopwords=removed] `ndcg@10` |
+| <a id="bm25dev.en.runner_up.ndcg10"></a>`bm25dev.en.runner_up.ndcg10` | 0.3187285304244415 | computed | `bm25_stopwords_summary_dev.csv` [language=en] `ndcg@10` of the second row by `ndcg@10` |
+| <a id="bm25dev.en.selected.ndcg10"></a>`bm25dev.en.selected.ndcg10` | 0.3302800831499781 | computed | `bm25_stopwords_summary_dev.csv` [language=en] `ndcg@10` of the top row by `ndcg@10`, checked to be labels_desc, stemmed, stopwords removed |
+| <a id="bm25dev.en.selected.ndcg10_hi"></a>`bm25dev.en.selected.ndcg10_hi` | 0.3380052052340421 | computed | `bm25_stopwords_summary_dev.csv` [language=en] `ndcg@10_hi` of the top row by `ndcg@10`, checked to be labels_desc, stemmed, stopwords removed |
+| <a id="bm25dev.en.selected.ndcg10_lo"></a>`bm25dev.en.selected.ndcg10_lo` | 0.3223827613732341 | computed | `bm25_stopwords_summary_dev.csv` [language=en] `ndcg@10_lo` of the top row by `ndcg@10`, checked to be labels_desc, stemmed, stopwords removed |
+| <a id="bm25dev.pt.configs"></a>`bm25dev.pt.configs` | 16 | computed | rows of `bm25_stopwords_summary_dev.csv` [language=pt] |
+| <a id="bm25dev.pt.runner_up.ndcg10"></a>`bm25dev.pt.runner_up.ndcg10` | 0.2613319372167529 | computed | `bm25_stopwords_summary_dev.csv` [language=pt] `ndcg@10` of the second row by `ndcg@10` |
+| <a id="bm25dev.pt.selected.ndcg10"></a>`bm25dev.pt.selected.ndcg10` | 0.2798085801851928 | computed | `bm25_stopwords_summary_dev.csv` [language=pt] `ndcg@10` of the top row by `ndcg@10`, checked to be labels_desc, stemmed, stopwords removed |
+| <a id="bm25dev.pt.selected.ndcg10_hi"></a>`bm25dev.pt.selected.ndcg10_hi` | 0.2873208328046597 | computed | `bm25_stopwords_summary_dev.csv` [language=pt] `ndcg@10_hi` of the top row by `ndcg@10`, checked to be labels_desc, stemmed, stopwords removed |
+| <a id="bm25dev.pt.selected.ndcg10_lo"></a>`bm25dev.pt.selected.ndcg10_lo` | 0.2722823511974462 | computed | `bm25_stopwords_summary_dev.csv` [language=pt] `ndcg@10_lo` of the top row by `ndcg@10`, checked to be labels_desc, stemmed, stopwords removed |
 | <a id="bm25x.en.alt_gain"></a>`bm25x.en.alt_gain` | 0.20107979473920623 | formula | {bm25x.en.labels.raw.kept.ndcg10} / {bm25x.en.preferred.raw.kept.ndcg10} - 1 |
 | <a id="bm25x.en.description.raw.kept.ndcg10"></a>`bm25x.en.description.raw.kept.ndcg10` | 0.2299162256359208 | lookup | `bm25_stopwords_summary.csv` [language=en, variant=description, stemming=raw, stopwords=kept] `ndcg@10` |
 | <a id="bm25x.en.description.raw.kept.tokens"></a>`bm25x.en.description.raw.kept.tokens` | 22.2 | lookup | `bm25_stopwords_summary.csv` [language=en, variant=description, stemming=raw, stopwords=kept] `mean_doc_tokens` |
@@ -371,6 +380,16 @@ The registry is `experiments/figures.py`.
 | <a id="fusion.all_four.rrf.gain"></a>`fusion.all_four.rrf.gain` | 0.017097845118128507 | formula | {fusion.all_four.rrf.fused_score} / {fusion.all_four.rrf.baseline_score} - 1 |
 | <a id="fusion.all_four.rrf.mean_delta"></a>`fusion.all_four.rrf.mean_delta` | 0.0061133529231126 | lookup | `fusion_paired.csv` [combination=all four, fusion=rrf] `mean_delta` |
 | <a id="fusion.all_four.rrf.share_positive"></a>`fusion.all_four.rrf.share_positive` | 0.4967105263157895 | lookup | `fusion_paired.csv` [combination=all four, fusion=rrf] `share_positive` |
+| <a id="fusion.all_four.rrft.beta"></a>`fusion.all_four.rrft.beta` | 0.2 | lookup | `fusion_rrf_tuned.csv` [combination=all four, fusion=rrf tuned] `beta` |
+| <a id="fusion.all_four.rrft.delta_hi"></a>`fusion.all_four.rrft.delta_hi` | 0.0279609576205305 | lookup | `fusion_rrf_tuned.csv` [combination=all four, fusion=rrf tuned] `delta_hi` |
+| <a id="fusion.all_four.rrft.delta_lo"></a>`fusion.all_four.rrft.delta_lo` | 0.0150832730594484 | lookup | `fusion_rrf_tuned.csv` [combination=all four, fusion=rrf tuned] `delta_lo` |
+| <a id="fusion.all_four.rrft.k"></a>`fusion.all_four.rrft.k` | 10 | lookup | `fusion_rrf_tuned.csv` [combination=all four, fusion=rrf tuned] `k` |
+| <a id="fusion.all_four.rrft.mean_delta"></a>`fusion.all_four.rrft.mean_delta` | 0.0214301473541466 | lookup | `fusion_rrf_tuned.csv` [combination=all four, fusion=rrf tuned] `mean_delta` |
+| <a id="fusion.all_four.rrft.ndcg10"></a>`fusion.all_four.rrft.ndcg10` | 0.3789812235789997 | lookup | `fusion_rrf_tuned.csv` [combination=all four, fusion=rrf tuned] `ndcg@10` |
+| <a id="fusion.all_four.rrft.vs_wsf_delta_hi"></a>`fusion.all_four.rrft.vs_wsf_delta_hi` | 0.0003489767225744 | lookup | `fusion_rrf_tuned.csv` [combination=all four, fusion=rrf tuned] `vs_wsf_delta_hi` |
+| <a id="fusion.all_four.rrft.vs_wsf_delta_lo"></a>`fusion.all_four.rrft.vs_wsf_delta_lo` | -0.0058120805160292 | lookup | `fusion_rrf_tuned.csv` [combination=all four, fusion=rrf tuned] `vs_wsf_delta_lo` |
+| <a id="fusion.all_four.rrft.vs_wsf_mean_delta"></a>`fusion.all_four.rrft.vs_wsf_mean_delta` | -0.0027130869120264 | lookup | `fusion_rrf_tuned.csv` [combination=all four, fusion=rrf tuned] `vs_wsf_mean_delta` |
+| <a id="fusion.all_four.rrft.weight"></a>`fusion.all_four.rrft.weight` | 0.4 | lookup | `fusion_rrf_tuned.csv` [combination=all four, fusion=rrf tuned] `weight` |
 | <a id="fusion.all_four.weight"></a>`fusion.all_four.weight` | 0.4 | lookup | `fusion_test.csv` [combination=all four, fusion=wsf] `weight` |
 | <a id="fusion.all_four.wsf.baseline_score"></a>`fusion.all_four.wsf.baseline_score` | 0.3575510762248531 | lookup | `fusion_paired.csv` [combination=all four, fusion=wsf] `baseline_score` |
 | <a id="fusion.all_four.wsf.delta_hi"></a>`fusion.all_four.wsf.delta_hi` | 0.0310048053801825 | lookup | `fusion_paired.csv` [combination=all four, fusion=wsf] `delta_hi` |
@@ -385,6 +404,15 @@ The registry is `experiments/figures.py`.
 | <a id="fusion.bilingual_bm25.rrf.fused_score"></a>`fusion.bilingual_bm25.rrf.fused_score` | 0.3194080848833865 | lookup | `fusion_paired.csv` [combination=bilingual bm25, fusion=rrf] `fused_score` |
 | <a id="fusion.bilingual_bm25.rrf.gain"></a>`fusion.bilingual_bm25.rrf.gain` | -0.017715962433385024 | formula | {fusion.bilingual_bm25.rrf.fused_score} / {fusion.bilingual_bm25.rrf.baseline_score} - 1 |
 | <a id="fusion.bilingual_bm25.rrf.mean_delta"></a>`fusion.bilingual_bm25.rrf.mean_delta` | -0.0057606775803172 | lookup | `fusion_paired.csv` [combination=bilingual bm25, fusion=rrf] `mean_delta` |
+| <a id="fusion.bilingual_bm25.rrft.delta_hi"></a>`fusion.bilingual_bm25.rrft.delta_hi` | 0.0065113522812378 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual bm25, fusion=rrf tuned] `delta_hi` |
+| <a id="fusion.bilingual_bm25.rrft.delta_lo"></a>`fusion.bilingual_bm25.rrft.delta_lo` | -0.0014010834771083 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual bm25, fusion=rrf tuned] `delta_lo` |
+| <a id="fusion.bilingual_bm25.rrft.k"></a>`fusion.bilingual_bm25.rrft.k` | 5 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual bm25, fusion=rrf tuned] `k` |
+| <a id="fusion.bilingual_bm25.rrft.mean_delta"></a>`fusion.bilingual_bm25.rrft.mean_delta` | 0.0024187210518407 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual bm25, fusion=rrf tuned] `mean_delta` |
+| <a id="fusion.bilingual_bm25.rrft.ndcg10"></a>`fusion.bilingual_bm25.rrft.ndcg10` | 0.3275874835155445 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual bm25, fusion=rrf tuned] `ndcg@10` |
+| <a id="fusion.bilingual_bm25.rrft.vs_wsf_delta_hi"></a>`fusion.bilingual_bm25.rrft.vs_wsf_delta_hi` | 0.0008422982295877 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual bm25, fusion=rrf tuned] `vs_wsf_delta_hi` |
+| <a id="fusion.bilingual_bm25.rrft.vs_wsf_delta_lo"></a>`fusion.bilingual_bm25.rrft.vs_wsf_delta_lo` | -0.0046751980970209 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual bm25, fusion=rrf tuned] `vs_wsf_delta_lo` |
+| <a id="fusion.bilingual_bm25.rrft.vs_wsf_mean_delta"></a>`fusion.bilingual_bm25.rrft.vs_wsf_mean_delta` | -0.0019376015454881 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual bm25, fusion=rrf tuned] `vs_wsf_mean_delta` |
+| <a id="fusion.bilingual_bm25.rrft.weight"></a>`fusion.bilingual_bm25.rrft.weight` | 0.3 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual bm25, fusion=rrf tuned] `weight` |
 | <a id="fusion.bilingual_bm25.wsf.baseline_score"></a>`fusion.bilingual_bm25.wsf.baseline_score` | 0.3251687624637038 | lookup | `fusion_paired.csv` [combination=bilingual bm25, fusion=wsf] `baseline_score` |
 | <a id="fusion.bilingual_bm25.wsf.delta_hi"></a>`fusion.bilingual_bm25.wsf.delta_hi` | 0.0081908539805001 | lookup | `fusion_paired.csv` [combination=bilingual bm25, fusion=wsf] `delta_hi` |
 | <a id="fusion.bilingual_bm25.wsf.delta_lo"></a>`fusion.bilingual_bm25.wsf.delta_lo` | 0.0006536212129046 | lookup | `fusion_paired.csv` [combination=bilingual bm25, fusion=wsf] `delta_lo` |
@@ -397,6 +425,15 @@ The registry is `experiments/figures.py`.
 | <a id="fusion.bilingual_gemma.rrf.fused_score"></a>`fusion.bilingual_gemma.rrf.fused_score` | 0.3562542127017123 | lookup | `fusion_paired.csv` [combination=bilingual embeddinggemma, fusion=rrf] `fused_score` |
 | <a id="fusion.bilingual_gemma.rrf.gain"></a>`fusion.bilingual_gemma.rrf.gain` | -0.003627072072705073 | formula | {fusion.bilingual_gemma.rrf.fused_score} / {fusion.bilingual_gemma.rrf.baseline_score} - 1 |
 | <a id="fusion.bilingual_gemma.rrf.mean_delta"></a>`fusion.bilingual_gemma.rrf.mean_delta` | -0.0012968635231408 | lookup | `fusion_paired.csv` [combination=bilingual embeddinggemma, fusion=rrf] `mean_delta` |
+| <a id="fusion.bilingual_gemma.rrft.delta_hi"></a>`fusion.bilingual_gemma.rrft.delta_hi` | 0.0065902050696529 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual embeddinggemma, fusion=rrf tuned] `delta_hi` |
+| <a id="fusion.bilingual_gemma.rrft.delta_lo"></a>`fusion.bilingual_gemma.rrft.delta_lo` | 0.0016231125486813 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual embeddinggemma, fusion=rrf tuned] `delta_lo` |
+| <a id="fusion.bilingual_gemma.rrft.k"></a>`fusion.bilingual_gemma.rrft.k` | 1 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual embeddinggemma, fusion=rrf tuned] `k` |
+| <a id="fusion.bilingual_gemma.rrft.mean_delta"></a>`fusion.bilingual_gemma.rrft.mean_delta` | 0.0040578051182655 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual embeddinggemma, fusion=rrf tuned] `mean_delta` |
+| <a id="fusion.bilingual_gemma.rrft.ndcg10"></a>`fusion.bilingual_gemma.rrft.ndcg10` | 0.3616088813431186 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual embeddinggemma, fusion=rrf tuned] `ndcg@10` |
+| <a id="fusion.bilingual_gemma.rrft.vs_wsf_delta_hi"></a>`fusion.bilingual_gemma.rrft.vs_wsf_delta_hi` | 0.0004478417804132 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual embeddinggemma, fusion=rrf tuned] `vs_wsf_delta_hi` |
+| <a id="fusion.bilingual_gemma.rrft.vs_wsf_delta_lo"></a>`fusion.bilingual_gemma.rrft.vs_wsf_delta_lo` | -0.0064863187672041 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual embeddinggemma, fusion=rrf tuned] `vs_wsf_delta_lo` |
+| <a id="fusion.bilingual_gemma.rrft.vs_wsf_mean_delta"></a>`fusion.bilingual_gemma.rrft.vs_wsf_mean_delta` | -0.0030812447758968 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual embeddinggemma, fusion=rrf tuned] `vs_wsf_mean_delta` |
+| <a id="fusion.bilingual_gemma.rrft.weight"></a>`fusion.bilingual_gemma.rrft.weight` | 0.2 | lookup | `fusion_rrf_tuned.csv` [combination=bilingual embeddinggemma, fusion=rrf tuned] `weight` |
 | <a id="fusion.bilingual_gemma.wsf.baseline_score"></a>`fusion.bilingual_gemma.wsf.baseline_score` | 0.3575510762248531 | lookup | `fusion_paired.csv` [combination=bilingual embeddinggemma, fusion=wsf] `baseline_score` |
 | <a id="fusion.bilingual_gemma.wsf.delta_hi"></a>`fusion.bilingual_gemma.wsf.delta_hi` | 0.0114653757125469 | lookup | `fusion_paired.csv` [combination=bilingual embeddinggemma, fusion=wsf] `delta_hi` |
 | <a id="fusion.bilingual_gemma.wsf.delta_lo"></a>`fusion.bilingual_gemma.wsf.delta_lo` | 0.0027606358043534 | lookup | `fusion_paired.csv` [combination=bilingual embeddinggemma, fusion=wsf] `delta_lo` |
@@ -446,6 +483,15 @@ The registry is `experiments/figures.py`.
 | <a id="fusion.hybrid_en.rrf.fused_score"></a>`fusion.hybrid_en.rrf.fused_score` | 0.3683854864273831 | lookup | `fusion_paired.csv` [combination=hybrid en, fusion=rrf] `fused_score` |
 | <a id="fusion.hybrid_en.rrf.gain"></a>`fusion.hybrid_en.rrf.gain` | 0.030301713301840394 | formula | {fusion.hybrid_en.rrf.fused_score} / {fusion.hybrid_en.rrf.baseline_score} - 1 |
 | <a id="fusion.hybrid_en.rrf.mean_delta"></a>`fusion.hybrid_en.rrf.mean_delta` | 0.0108344102025299 | lookup | `fusion_paired.csv` [combination=hybrid en, fusion=rrf] `mean_delta` |
+| <a id="fusion.hybrid_en.rrft.delta_hi"></a>`fusion.hybrid_en.rrft.delta_hi` | 0.0212920927184442 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid en, fusion=rrf tuned] `delta_hi` |
+| <a id="fusion.hybrid_en.rrft.delta_lo"></a>`fusion.hybrid_en.rrft.delta_lo` | 0.0097633952889259 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid en, fusion=rrf tuned] `delta_lo` |
+| <a id="fusion.hybrid_en.rrft.k"></a>`fusion.hybrid_en.rrft.k` | 5 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid en, fusion=rrf tuned] `k` |
+| <a id="fusion.hybrid_en.rrft.mean_delta"></a>`fusion.hybrid_en.rrft.mean_delta` | 0.0155301244203365 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid en, fusion=rrf tuned] `mean_delta` |
+| <a id="fusion.hybrid_en.rrft.ndcg10"></a>`fusion.hybrid_en.rrft.ndcg10` | 0.3730812006451898 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid en, fusion=rrf tuned] `ndcg@10` |
+| <a id="fusion.hybrid_en.rrft.vs_wsf_delta_hi"></a>`fusion.hybrid_en.rrft.vs_wsf_delta_hi` | -0.002865192064895 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid en, fusion=rrf tuned] `vs_wsf_delta_hi` |
+| <a id="fusion.hybrid_en.rrft.vs_wsf_delta_lo"></a>`fusion.hybrid_en.rrft.vs_wsf_delta_lo` | -0.0100541054286326 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid en, fusion=rrf tuned] `vs_wsf_delta_lo` |
+| <a id="fusion.hybrid_en.rrft.vs_wsf_mean_delta"></a>`fusion.hybrid_en.rrft.vs_wsf_mean_delta` | -0.0063137467301244 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid en, fusion=rrf tuned] `vs_wsf_mean_delta` |
+| <a id="fusion.hybrid_en.rrft.weight"></a>`fusion.hybrid_en.rrft.weight` | 0.4 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid en, fusion=rrf tuned] `weight` |
 | <a id="fusion.hybrid_en.wsf.baseline_score"></a>`fusion.hybrid_en.wsf.baseline_score` | 0.3575510762248531 | lookup | `fusion_paired.csv` [combination=hybrid en, fusion=wsf] `baseline_score` |
 | <a id="fusion.hybrid_en.wsf.delta_hi"></a>`fusion.hybrid_en.wsf.delta_hi` | 0.028713868160001 | lookup | `fusion_paired.csv` [combination=hybrid en, fusion=wsf] `delta_hi` |
 | <a id="fusion.hybrid_en.wsf.delta_lo"></a>`fusion.hybrid_en.wsf.delta_lo` | 0.0152200771369786 | lookup | `fusion_paired.csv` [combination=hybrid en, fusion=wsf] `delta_lo` |
@@ -458,6 +504,15 @@ The registry is `experiments/figures.py`.
 | <a id="fusion.hybrid_pt.rrf.fused_score"></a>`fusion.hybrid_pt.rrf.fused_score` | 0.3271296569280883 | lookup | `fusion_paired.csv` [combination=hybrid pt, fusion=rrf] `fused_score` |
 | <a id="fusion.hybrid_pt.rrf.gain"></a>`fusion.hybrid_pt.rrf.gain` | -0.0039004996276039705 | formula | {fusion.hybrid_pt.rrf.fused_score} / {fusion.hybrid_pt.rrf.baseline_score} - 1 |
 | <a id="fusion.hybrid_pt.rrf.mean_delta"></a>`fusion.hybrid_pt.rrf.mean_delta` | -0.0012809655105229 | lookup | `fusion_paired.csv` [combination=hybrid pt, fusion=rrf] `mean_delta` |
+| <a id="fusion.hybrid_pt.rrft.delta_hi"></a>`fusion.hybrid_pt.rrft.delta_hi` | 0.0142577443286295 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid pt, fusion=rrf tuned] `delta_hi` |
+| <a id="fusion.hybrid_pt.rrft.delta_lo"></a>`fusion.hybrid_pt.rrft.delta_lo` | 0.0021897265110039 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid pt, fusion=rrf tuned] `delta_lo` |
+| <a id="fusion.hybrid_pt.rrft.k"></a>`fusion.hybrid_pt.rrft.k` | 5 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid pt, fusion=rrf tuned] `k` |
+| <a id="fusion.hybrid_pt.rrft.mean_delta"></a>`fusion.hybrid_pt.rrft.mean_delta` | 0.0081652745699728 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid pt, fusion=rrf tuned] `mean_delta` |
+| <a id="fusion.hybrid_pt.rrft.ndcg10"></a>`fusion.hybrid_pt.rrft.ndcg10` | 0.3365758970085841 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid pt, fusion=rrf tuned] `ndcg@10` |
+| <a id="fusion.hybrid_pt.rrft.vs_wsf_delta_hi"></a>`fusion.hybrid_pt.rrft.vs_wsf_delta_hi` | -0.0038649252285973 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid pt, fusion=rrf tuned] `vs_wsf_delta_hi` |
+| <a id="fusion.hybrid_pt.rrft.vs_wsf_delta_lo"></a>`fusion.hybrid_pt.rrft.vs_wsf_delta_lo` | -0.0110501251835797 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid pt, fusion=rrf tuned] `vs_wsf_delta_lo` |
+| <a id="fusion.hybrid_pt.rrft.vs_wsf_mean_delta"></a>`fusion.hybrid_pt.rrft.vs_wsf_mean_delta` | -0.0073531451942245 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid pt, fusion=rrf tuned] `vs_wsf_mean_delta` |
+| <a id="fusion.hybrid_pt.rrft.weight"></a>`fusion.hybrid_pt.rrft.weight` | 0.4 | lookup | `fusion_rrf_tuned.csv` [combination=hybrid pt, fusion=rrf tuned] `weight` |
 | <a id="fusion.hybrid_pt.wsf.baseline_score"></a>`fusion.hybrid_pt.wsf.baseline_score` | 0.3284106224386113 | lookup | `fusion_paired.csv` [combination=hybrid pt, fusion=wsf] `baseline_score` |
 | <a id="fusion.hybrid_pt.wsf.delta_hi"></a>`fusion.hybrid_pt.wsf.delta_hi` | 0.0210964959042494 | lookup | `fusion_paired.csv` [combination=hybrid pt, fusion=wsf] `delta_hi` |
 | <a id="fusion.hybrid_pt.wsf.delta_lo"></a>`fusion.hybrid_pt.wsf.delta_lo` | 0.0096654149351896 | lookup | `fusion_paired.csv` [combination=hybrid pt, fusion=wsf] `delta_lo` |
@@ -467,6 +522,10 @@ The registry is `experiments/figures.py`.
 | <a id="fusion.rrf.cleared"></a>`fusion.rrf.cleared` | 1 | computed | rows of `fusion_paired.csv` [fusion=rrf] with `delta_lo` > 0 |
 | <a id="fusion.rrf.combinations"></a>`fusion.rrf.combinations` | 5 | computed | rows of `fusion_paired.csv` [fusion=rrf] |
 | <a id="fusion.rrf.failed"></a>`fusion.rrf.failed` | 4 | formula | {fusion.rrf.combinations} - {fusion.rrf.cleared} |
+| <a id="fusion.rrf.k_default"></a>`fusion.rrf.k_default` | 60 | constant | `RRF_K` in `src/retrieval/fusion.py` |
+| <a id="fusion.rrft.cleared"></a>`fusion.rrft.cleared` | 4 | computed | rows of `fusion_rrf_tuned.csv` [fusion=rrf tuned] with `delta_lo` > 0 |
+| <a id="fusion.rrft.k.max"></a>`fusion.rrft.k.max` | 10 | computed | max of `fusion_rrf_tuned.csv` [fusion=rrf tuned] `k` |
+| <a id="fusion.rrft.k.min"></a>`fusion.rrft.k.min` | 1 | computed | min of `fusion_rrf_tuned.csv` [fusion=rrf tuned] `k` |
 | <a id="fusion.run_depth"></a>`fusion.run_depth` | 200 | constant | `RUN_DEPTH` in `experiments/13_fusion.py` |
 | <a id="fusion.wsf.cleared"></a>`fusion.wsf.cleared` | 5 | computed | rows of `fusion_paired.csv` [fusion=wsf] with `delta_lo` > 0 |
 | <a id="gap.abs.bi"></a>`gap.abs.bi` | 0.029140453786241804 | formula | {bi.embeddinggemma.test.en.ndcg10} - {bi.embeddinggemma.test.pt.ndcg10} |
@@ -478,6 +537,17 @@ The registry is `experiments/figures.py`.
 | <a id="gap.abs.oracle20"></a>`gap.abs.oracle20` | 0.03925019724978118 | formula | {oracle20.test.en.ndcg10} - {oracle20.test.pt.ndcg10} |
 | <a id="gap.abs.oracle50"></a>`gap.abs.oracle50` | 0.027635220310797903 | formula | {oracle50.test.en.ndcg10} - {oracle50.test.pt.ndcg10} |
 | <a id="gap.abs.qwen"></a>`gap.abs.qwen` | 0.03610278025201252 | formula | {qwen.test.en.ndcg10} - {qwen.test.pt.ndcg10} |
+| <a id="gap.change.dense.hi"></a>`gap.change.dense.hi` | -0.0175754662844665 | lookup | `llm_compare.csv` [comparison=gap change, EmbeddingGemma minus BM25, language=en-pt] `hi` |
+| <a id="gap.change.dense.lo"></a>`gap.change.dense.lo` | -0.0439571837415305 | lookup | `llm_compare.csv` [comparison=gap change, EmbeddingGemma minus BM25, language=en-pt] `lo` |
+| <a id="gap.change.dense.mean"></a>`gap.change.dense.mean` | -0.0302115362298188 | lookup | `llm_compare.csv` [comparison=gap change, EmbeddingGemma minus BM25, language=en-pt] `mean` |
+| <a id="gap.change.fusion.hi"></a>`gap.change.fusion.hi` | 0.0140396885347692 | lookup | `llm_compare.csv` [comparison=gap change, first stage minus EmbeddingGemma, language=en-pt] `hi` |
+| <a id="gap.change.fusion.lo"></a>`gap.change.fusion.lo` | -0.0010587967864333 | lookup | `llm_compare.csv` [comparison=gap change, first stage minus EmbeddingGemma, language=en-pt] `lo` |
+| <a id="gap.change.fusion.lost"></a>`gap.change.fusion.lost` | 0.4457236842105263 | lookup | `llm_compare.csv` [comparison=gap change, first stage minus EmbeddingGemma, language=en-pt] `lost` |
+| <a id="gap.change.fusion.mean"></a>`gap.change.fusion.mean` | 0.0063254513862636 | lookup | `llm_compare.csv` [comparison=gap change, first stage minus EmbeddingGemma, language=en-pt] `mean` |
+| <a id="gap.change.fusion_keeps"></a>`gap.change.fusion_keeps` | 0.7906279462869427 | formula | {gap.change.hybrid_vs_bm25.mean} / {gap.change.dense.mean} |
+| <a id="gap.change.hybrid_vs_bm25.hi"></a>`gap.change.hybrid_vs_bm25.hi` | -0.0135241058729332 | lookup | `llm_compare.csv` [comparison=gap change, first stage minus BM25, language=en-pt] `hi` |
+| <a id="gap.change.hybrid_vs_bm25.lo"></a>`gap.change.hybrid_vs_bm25.lo` | -0.0349170213892861 | lookup | `llm_compare.csv` [comparison=gap change, first stage minus BM25, language=en-pt] `lo` |
+| <a id="gap.change.hybrid_vs_bm25.mean"></a>`gap.change.hybrid_vs_bm25.mean` | -0.0238860848435552 | lookup | `llm_compare.csv` [comparison=gap change, first stage minus BM25, language=en-pt] `mean` |
 | <a id="gap.rel.bi"></a>`gap.rel.bi` | 0.08873176382012105 | formula | {bi.embeddinggemma.test.en.ndcg10} / {bi.embeddinggemma.test.pt.ndcg10} - 1 |
 | <a id="gap.rel.bm25"></a>`gap.rel.bm25` | 0.22328158403830978 | formula | {bm25.test.en.ndcg10} / {bm25.test.pt.ndcg10} - 1 |
 | <a id="gap.rel.deepseek"></a>`gap.rel.deepseek` | 0.082764813428029 | formula | {deepseek.test.en.ndcg10} / {deepseek.test.pt.ndcg10} - 1 |
@@ -489,6 +559,18 @@ The registry is `experiments/figures.py`.
 | <a id="gap.rel.oracle50"></a>`gap.rel.oracle50` | 0.03911201093086758 | formula | {oracle50.test.en.ndcg10} / {oracle50.test.pt.ndcg10} - 1 |
 | <a id="gap.rel.qwen"></a>`gap.rel.qwen` | 0.09529906138414668 | formula | {qwen.test.en.ndcg10} / {qwen.test.pt.ndcg10} - 1 |
 | <a id="gap.rel.qwen3emb"></a>`gap.rel.qwen3emb` | 0.058736933479559994 | formula | {bi.qwen3-4b.test.en.ndcg10} / {bi.qwen3-4b.test.pt.ndcg10} - 1 |
+| <a id="gap.removed.oracle10.hi"></a>`gap.removed.oracle10.hi` | 0.2116744355871796 | lookup | `llm_compare.csv` [comparison=gap removed, oracle@10, language=en-pt] `hi` |
+| <a id="gap.removed.oracle10.lo"></a>`gap.removed.oracle10.lo` | -0.1387605461226052 | lookup | `llm_compare.csv` [comparison=gap removed, oracle@10, language=en-pt] `lo` |
+| <a id="gap.removed.oracle10.mean"></a>`gap.removed.oracle10.mean` | 0.0392047686854782 | lookup | `llm_compare.csv` [comparison=gap removed, oracle@10, language=en-pt] `mean` |
+| <a id="gap.removed.oracle100.hi"></a>`gap.removed.oracle100.hi` | 0.5623221506101265 | lookup | `llm_compare.csv` [comparison=gap removed, oracle@100, language=en-pt] `hi` |
+| <a id="gap.removed.oracle100.lo"></a>`gap.removed.oracle100.lo` | -0.0279955412576868 | lookup | `llm_compare.csv` [comparison=gap removed, oracle@100, language=en-pt] `lo` |
+| <a id="gap.removed.oracle100.mean"></a>`gap.removed.oracle100.mean` | 0.3133655072937487 | lookup | `llm_compare.csv` [comparison=gap removed, oracle@100, language=en-pt] `mean` |
+| <a id="gap.removed.oracle20.hi"></a>`gap.removed.oracle20.hi` | 0.1607570771357353 | lookup | `llm_compare.csv` [comparison=gap removed, oracle@20, language=en-pt] `hi` |
+| <a id="gap.removed.oracle20.lo"></a>`gap.removed.oracle20.lo` | -0.4560998596774281 | lookup | `llm_compare.csv` [comparison=gap removed, oracle@20, language=en-pt] `lo` |
+| <a id="gap.removed.oracle20.mean"></a>`gap.removed.oracle20.mean` | -0.106702255556963 | lookup | `llm_compare.csv` [comparison=gap removed, oracle@20, language=en-pt] `mean` |
+| <a id="gap.removed.oracle50.hi"></a>`gap.removed.oracle50.hi` | 0.4935767230288997 | lookup | `llm_compare.csv` [comparison=gap removed, oracle@50, language=en-pt] `hi` |
+| <a id="gap.removed.oracle50.lo"></a>`gap.removed.oracle50.lo` | -0.1190849746636776 | lookup | `llm_compare.csv` [comparison=gap removed, oracle@50, language=en-pt] `lo` |
+| <a id="gap.removed.oracle50.mean"></a>`gap.removed.oracle50.mean` | 0.2207947273196419 | lookup | `llm_compare.csv` [comparison=gap removed, oracle@50, language=en-pt] `mean` |
 | <a id="goldsize.adv.max"></a>`goldsize.adv.max` | 0.29721645140394815 | formula | max({goldsize.q1.adv}, {goldsize.q2.adv}, {goldsize.q3.adv}, {goldsize.q4.adv}) |
 | <a id="goldsize.adv.min"></a>`goldsize.adv.min` | 0.17227054916830697 | formula | min({goldsize.q1.adv}, {goldsize.q2.adv}, {goldsize.q3.adv}, {goldsize.q4.adv}) |
 | <a id="goldsize.en.ndcg10.max"></a>`goldsize.en.ndcg10.max` | 0.3297684880619467 | formula | max({goldsize.q1.en.ndcg10}, {goldsize.q2.en.ndcg10}, {goldsize.q3.en.ndcg10}, {goldsize.q4.en.ndcg10}) |
@@ -640,20 +722,17 @@ The registry is `experiments/figures.py`.
 | <a id="model.bge.params_m"></a>`model.bge.params_m` | 568 | constant | BAAI/bge-reranker-v2-m3 model card: 568M parameters |
 | <a id="model.embeddinggemma.params_m"></a>`model.embeddinggemma.params_m` | 308 | constant | EmbeddingGemma-300M model card: 308M parameters |
 | <a id="model.qwen3emb.params_b"></a>`model.qwen3emb.params_b` | 4 | constant | Qwen3-Embedding-4B model card: 4B parameters |
-| <a id="oracle10.gap_removed"></a>`oracle10.gap_removed` | 0.0392047686854845 | formula | 1 - {gap.abs.oracle10} / {gap.abs.hybrid} |
 | <a id="oracle10.test.en.mrr"></a>`oracle10.test.en.mrr` | 0.926468774527993 | lookup | `rerank_test.csv` [language=en, stage=oracle, depth=10] `mrr` |
 | <a id="oracle10.test.en.ndcg10"></a>`oracle10.test.en.ndcg10` | 0.4647963150860102 | lookup | `rerank_test.csv` [language=en, stage=oracle, depth=10] `ndcg@10` |
 | <a id="oracle10.test.pt.mrr"></a>`oracle10.test.pt.mrr` | 0.9115227440407156 | lookup | `rerank_test.csv` [language=pt, stage=oracle, depth=10] `mrr` |
 | <a id="oracle10.test.pt.ndcg10"></a>`oracle10.test.pt.ndcg10` | 0.4307208425220141 | lookup | `rerank_test.csv` [language=pt, stage=oracle, depth=10] `ndcg@10` |
 | <a id="oracle100.gain.en"></a>`oracle100.gain.en` | 1.164463092063642 | formula | {oracle100.test.en.ndcg10} / {hybrid.test.en.ndcg10} - 1 |
 | <a id="oracle100.gain.pt"></a>`oracle100.gain.pt` | 1.3168565294725108 | formula | {oracle100.test.pt.ndcg10} / {hybrid.test.pt.ndcg10} - 1 |
-| <a id="oracle100.gap_removed"></a>`oracle100.gap_removed` | 0.3133655072937509 | formula | 1 - {gap.abs.oracle100} / {gap.abs.hybrid} |
 | <a id="oracle100.mean"></a>`oracle100.mean` | 0.8090103040060497 | formula | ({oracle100.test.pt.ndcg10} + {oracle100.test.en.ndcg10}) / 2 |
 | <a id="oracle100.test.en.ndcg10"></a>`oracle100.test.en.ndcg10` | 0.8211863609092953 | lookup | `rerank_test.csv` [language=en, stage=oracle, depth=100] `ndcg@10` |
 | <a id="oracle100.test.pt.ndcg10"></a>`oracle100.test.pt.ndcg10` | 0.796834247102804 | lookup | `rerank_test.csv` [language=pt, stage=oracle, depth=100] `ndcg@10` |
 | <a id="oracle20.test.en.ndcg10"></a>`oracle20.test.en.ndcg10` | 0.5932092112008572 | lookup | `rerank_test.csv` [language=en, stage=oracle, depth=20] `ndcg@10` |
 | <a id="oracle20.test.pt.ndcg10"></a>`oracle20.test.pt.ndcg10` | 0.553959013951076 | lookup | `rerank_test.csv` [language=pt, stage=oracle, depth=20] `ndcg@10` |
-| <a id="oracle50.gap_removed"></a>`oracle50.gap_removed` | 0.22079472731964167 | formula | 1 - {gap.abs.oracle50} / {gap.abs.hybrid} |
 | <a id="oracle50.test.en.ndcg10"></a>`oracle50.test.en.ndcg10` | 0.734201302009961 | lookup | `rerank_test.csv` [language=en, stage=oracle, depth=50] `ndcg@10` |
 | <a id="oracle50.test.pt.ndcg10"></a>`oracle50.test.pt.ndcg10` | 0.7065660816991631 | lookup | `rerank_test.csv` [language=pt, stage=oracle, depth=50] `ndcg@10` |
 | <a id="overlap.en.content_loss"></a>`overlap.en.content_loss` | 0.3590584683034431 | formula | 1 - {overlap.en.raw.description.content_coverage} / {overlap.en.raw.description.gold_coverage} |

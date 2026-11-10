@@ -67,9 +67,8 @@ Recall@10 is capped at [0.543](bm25.md "from bm25.md, split_profile.md") on this
 what is reachable.
 
 What the headline table does not show: dense retrieval closed about half of the
-lexical language gap by compressing a tail of failing Portuguese queries, fusion
-then widened it again because lexical retrieval helps English more, and no
-reranker moved it afterwards.
+lexical language gap by compressing a tail of failing Portuguese queries, and
+nothing after it, fusion or either reranker, measurably moved the gap again.
 
 ---
 
@@ -251,9 +250,11 @@ Q1, with a median of [12](gold_size_slice.md "from gold_size_slice.md") essentia
 approximation to learning outcome density. Performance there matches the pooled
 figures: English [0.308](gold_size_slice.md "from gold_size_slice.md") against [0.309](bm25_stopwords.md "from bm25_stopwords.md") pooled, Portuguese [0.237](gold_size_slice.md "from gold_size_slice.md") against [0.248](bm25_stopwords.md "from bm25_stopwords.md").
 
-Method behaviour is stable as gold sets shrink toward the target task, across
-the range this benchmark can test. Query length remains untested, since all
-queries here are full occupation descriptions.
+For BM25 over `labels_desc`, stemmed and without stopword removal, behaviour is
+stable as gold sets shrink toward the target task, across the range this
+benchmark can test. That is the only configuration sliced. Dense retrieval,
+fusion and reranking have not been sliced by gold set size, and query length
+remains untested, since all queries here are full occupation descriptions.
 
 ---
 
@@ -452,6 +453,13 @@ calibrated rather than arbitrary, so the dense comparison that follows cannot be
 dismissed as tuned-against-untuned. The reported baseline stays at the defaults,
 since tuned parameters would add a configuration to explain for no measurable
 return.
+
+The baseline's configuration, `labels_desc`, stemmed, stopwords removed, was
+first picked from experiment 05's test results. Rerunning all [sixteen](bm25_stopwords_dev.md "from bm25_stopwords_dev.md") configurations
+per language on dev ([`bm25_stopwords_dev.md`](bm25_stopwords_dev.md)) selects the same one in both
+languages, at [0.2798](bm25_stopwords_dev.md "from bm25_stopwords_dev.md") [[0.2723](bm25_stopwords_dev.md "from bm25_stopwords_dev.md"), [0.2873](bm25_stopwords_dev.md "from bm25_stopwords_dev.md")] in Portuguese and [0.3303](bm25_stopwords_dev.md "from bm25_stopwords_dev.md") [[0.3224](bm25_stopwords_dev.md "from bm25_stopwords_dev.md"), [0.3380](bm25_stopwords_dev.md "from bm25_stopwords_dev.md")] in
+English, against runners-up of [0.2613](bm25_stopwords_dev.md "from bm25_stopwords_dev.md") and [0.3187](bm25_stopwords_dev.md "from bm25_stopwords_dev.md"), so the baseline is not
+selected on test.
 
 ### Length normalisation is not the residual
 
@@ -873,7 +881,7 @@ Runs are produced at depth [200](figure_sources.md#fusion.run_depth "recorded in
 so it is scored on test directly. Weighted score fusion has its weight selected
 on dev and applied once to test.
 
-### Weighted score fusion works; rank fusion mostly does not
+### Weighted score fusion works; rank fusion needs tuning too
 
 Every combination is scored on the identical 608 queries, so the comparison is
 paired. Marginal intervals are a weak test here, since two overlapping intervals
@@ -893,14 +901,41 @@ is on the per-query difference against the stronger of the runs being combined.
 | bilingual bm25 | wsf | [0.3295](fusion.md "from fusion.md") | [+1.3%](fusion.md "from fusion.md") | ▲ [+0.0044](fusion.md "from fusion.md") [[+0.0007](fusion.md "from fusion.md"), [+0.0082](fusion.md "from fusion.md")] |
 | **all four** | **wsf** | **[0.3817](fusion.md "from fusion.md")** | **[+6.8%](fusion.md "from fusion.md")** | **▲ [+0.0241](fusion.md "from fusion.md") [[+0.0173](fusion.md "from fusion.md"), [+0.0310](fusion.md "from fusion.md")]** |
 
-Only [one](fusion.md "from fusion.md") of [five](fusion.md "from fusion.md") rank-fusion combinations clears zero. `all four` under RRF looks
+At its conventional constant, k = [60](figure_sources.md#fusion.rrf.k_default "recorded in figure_sources.md") with equal weights, only [one](fusion.md "from fusion.md") of [five](fusion.md "from fusion.md") rank-fusion
+combinations clears zero. `all four` under RRF looks
 like a [+1.7%](fusion.md "from fusion.md") gain but its interval spans zero and it wins on [49.7%](fusion.md "from fusion.md") of
 queries, which is a coin flip. All [five](fusion.md "from fusion.md") weighted combinations clear zero.
 
-That is worth stating because reciprocal rank fusion is often presented as the
-safe parameter-free default. On this task the parameter-free method mostly
-failed and the tuned one worked, and reporting point estimates alone would have
-hidden it.
+Reciprocal rank fusion is often presented as the safe parameter-free default,
+and an earlier version of this section concluded that on this task the
+parameter-free method mostly failed and the tuned one worked. But that
+comparison gave weighted fusion a weight tuned on dev and RRF none, the
+tuned-against-untuned comparison experiment 06 guards against for BM25. Tuning
+RRF's constant k and its run weights on dev the same way, then scoring once on
+test ([`fusion_rrf_tuned.md`](fusion_rrf_tuned.md)):
+
+| combination | k | weight | fused | over better input (95% CI) | minus weighted fusion (95% CI) |
+|---|---:|---:|---:|---|---|
+| hybrid pt | [5](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") | [0.4](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") | [0.3366](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") | ▲ [+0.0082](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") [[+0.0022](fusion_rrf_tuned.md "from fusion_rrf_tuned.md"), [+0.0143](fusion_rrf_tuned.md "from fusion_rrf_tuned.md")] | ▼ [−0.0074](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") [[−0.0111](fusion_rrf_tuned.md "from fusion_rrf_tuned.md"), [−0.0039](fusion_rrf_tuned.md "from fusion_rrf_tuned.md")] |
+| hybrid en | [5](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") | [0.4](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") | [0.3731](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") | ▲ [+0.0155](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") [[+0.0098](fusion_rrf_tuned.md "from fusion_rrf_tuned.md"), [+0.0213](fusion_rrf_tuned.md "from fusion_rrf_tuned.md")] | ▼ [−0.0063](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") [[−0.0101](fusion_rrf_tuned.md "from fusion_rrf_tuned.md"), [−0.0029](fusion_rrf_tuned.md "from fusion_rrf_tuned.md")] |
+| bilingual gemma | [1](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") | [0.2](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") | [0.3616](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") | ▲ [+0.0041](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") [[+0.0016](fusion_rrf_tuned.md "from fusion_rrf_tuned.md"), [+0.0066](fusion_rrf_tuned.md "from fusion_rrf_tuned.md")] | [−0.0031](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") [[−0.0065](fusion_rrf_tuned.md "from fusion_rrf_tuned.md"), [+0.0004](fusion_rrf_tuned.md "from fusion_rrf_tuned.md")] |
+| bilingual bm25 | [5](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") | [0.3](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") | [0.3276](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") | [+0.0024](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") [[−0.0014](fusion_rrf_tuned.md "from fusion_rrf_tuned.md"), [+0.0065](fusion_rrf_tuned.md "from fusion_rrf_tuned.md")] | [−0.0019](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") [[−0.0047](fusion_rrf_tuned.md "from fusion_rrf_tuned.md"), [+0.0008](fusion_rrf_tuned.md "from fusion_rrf_tuned.md")] |
+| all four | [10](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") | [0.4](fusion_rrf_tuned.md "from fusion_rrf_tuned.md"), pt [0.2](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") | [0.3790](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") | ▲ [+0.0214](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") [[+0.0151](fusion_rrf_tuned.md "from fusion_rrf_tuned.md"), [+0.0280](fusion_rrf_tuned.md "from fusion_rrf_tuned.md")] | [−0.0027](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") [[−0.0058](fusion_rrf_tuned.md "from fusion_rrf_tuned.md"), [+0.0003](fusion_rrf_tuned.md "from fusion_rrf_tuned.md")] |
+
+The weight is on the first input named, BM25 in a hybrid and Portuguese in a
+bilingual pair; for `all four` it is the lexical share, with the Portuguese
+share alongside, as in the weighted sweep below.
+
+Tuned, RRF clears its better input in [four](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") of [five](fusion.md "from fusion.md") combinations. Dev selects k between
+[1](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") and [10](fusion_rrf_tuned.md "from fusion_rrf_tuned.md") everywhere, far below the conventional [60](figure_sources.md#fusion.rrf.k_default "recorded in figure_sources.md"), which flattens the
+difference between the top ranks this task depends on. Bilingual gemma selected
+the smallest k in the grid, so its optimum may lie at or beyond the edge.
+
+Weighted score fusion stays ahead: significantly for both hybrids, which is
+where the recommended system lives, and indistinguishably for the other three.
+So the recommendation stands, but the reason changes. Rank fusion did not fail
+as a method on this task; its conventional constant did, and an untuned default
+compared against a tuned alternative would have hidden that.
 
 ### The two best configurations are not separable
 
@@ -953,18 +988,38 @@ one input was dead weight.
 The Portuguese weight of [0.2](fusion.md "from fusion.md") is a deployment finding in itself. Given both texts,
 the best fused system leans heavily on the English one.
 
-### Fusion widens the language gap
+### Fusion does not measurably change the language gap
 
-| system | en | pt | gap |
-|---|---:|---:|---:|
-| BM25 | [0.3252](bm25_stopwords.md "from bm25_stopwords.md") | [0.2658](bm25_stopwords.md "from bm25_stopwords.md") | [+22.3%](bm25_stopwords.md "from bm25_stopwords.md") |
-| EmbeddingGemma | [0.3576](bi_encoder.md "from bi_encoder.md") | [0.3284](bi_encoder.md "from bi_encoder.md") | [+8.9%](bi_encoder.md "from bi_encoder.md") |
-| hybrid, wsf | [0.3794](rerank.md "from rerank.md") | [0.3439](rerank.md "from rerank.md") | [+10.3%](rerank.md "from rerank.md") |
+| system | en | pt | gap | gap, relative |
+|---|---:|---:|---:|---:|
+| BM25 | [0.3252](bm25_stopwords.md "from bm25_stopwords.md") | [0.2658](bm25_stopwords.md "from bm25_stopwords.md") | [0.0594](bm25_stopwords.md "from bm25_stopwords.md") | [+22.3%](bm25_stopwords.md "from bm25_stopwords.md") |
+| EmbeddingGemma | [0.3576](bi_encoder.md "from bi_encoder.md") | [0.3284](bi_encoder.md "from bi_encoder.md") | [0.0291](bi_encoder.md "from bi_encoder.md") | [+8.9%](bi_encoder.md "from bi_encoder.md") |
+| hybrid, wsf | [0.3794](rerank.md "from rerank.md") | [0.3439](rerank.md "from rerank.md") | [0.0355](rerank.md "from rerank.md") | [+10.3%](rerank.md "from rerank.md") |
 
-Adding lexical retrieval back in helps English more than Portuguese, [+6.1%](rerank.md "from rerank.md, bi_encoder.md")
-against [+4.7%](rerank.md "from rerank.md, bi_encoder.md"), so it re-imports part of the gap that dense retrieval had removed.
-The best-performing configuration is not the most language-equitable one, which
-follows directly from the lexical diagnosis in experiments 01 to 09.
+Read off the means, adding lexical retrieval back in helps English more than
+Portuguese, [+6.1%](rerank.md "from rerank.md, bi_encoder.md") against [+4.7%](rerank.md "from rerank.md, bi_encoder.md"), and the gap rises from [0.0291](bi_encoder.md "from bi_encoder.md") to [0.0355](rerank.md "from rerank.md"). An
+earlier version of this section concluded that fusion re-imports part of the
+gap dense retrieval had removed, and that the best-performing configuration is
+not the most language-equitable one. Both rested on point estimates.
+
+The change in the gap, paired on occupation (experiment 16):
+
+| change in the gap | mean (95% CI) |
+|---|---|
+| EmbeddingGemma minus BM25 | [−0.0302](llm_compare.md "from llm_compare.md") [[−0.0440](llm_compare.md "from llm_compare.md"), [−0.0176](llm_compare.md "from llm_compare.md")] |
+| hybrid minus EmbeddingGemma | [+0.0063](llm_compare.md "from llm_compare.md") [[−0.0011](llm_compare.md "from llm_compare.md"), [+0.0140](llm_compare.md "from llm_compare.md")] |
+| hybrid minus BM25 | [−0.0239](llm_compare.md "from llm_compare.md") [[−0.0349](llm_compare.md "from llm_compare.md"), [−0.0135](llm_compare.md "from llm_compare.md")] |
+
+Dense retrieval's reduction is clear. Fusion's increase is not distinguishable
+from zero, and the hybrid has a smaller English lead than EmbeddingGemma on
+[45%](llm_compare.md "from llm_compare.md") of occupations. The hybrid's gap stays clearly below BM25's, keeping about
+[79%](llm_compare.md "from llm_compare.md") of the reduction dense retrieval made. So fusion raises both languages
+without a measurable cost in equity.
+
+The lexical diagnosis in experiments 01 to 09 would predict some widening,
+since bringing BM25 back in brings back the vocabulary-matching problem it
+carries. If that widening exists, it is smaller than this split can detect: at
+most about [0.014](llm_compare.md "from llm_compare.md") nDCG@10.
 
 For a Portuguese-only deployment the relevant number is different again: hybrid
 Portuguese at [0.3439](rerank.md "from rerank.md") is [29.4%](rerank.md "from rerank.md, bm25_stopwords.md") above the Portuguese lexical baseline, and is the
@@ -1115,29 +1170,35 @@ The measured MRR is [0.654](rerank.md "from rerank.md") and [0.700](rerank.md "f
 The system finds correct answers and fails to put them first. For an interface
 showing a teacher a handful of suggestions, that is the gap that matters.
 
-### About a third of the residual language gap is ordering
+### Ordering may account for part of the residual language gap
 
-| | pt | en | gap | gap, relative | share of gap removed |
-|---|---:|---:|---:|---:|---:|
+| | pt | en | gap | gap, relative | share of gap removed (95% CI) |
+|---|---:|---:|---:|---:|---|
 | first stage | [0.3439](rerank.md "from rerank.md") | [0.3794](rerank.md "from rerank.md") | [0.0355](rerank.md "from rerank.md") | [+10.3%](rerank.md "from rerank.md") | |
-| oracle @10 | [0.4307](rerank.md "from rerank.md") | [0.4648](rerank.md "from rerank.md") | [0.0341](rerank.md "from rerank.md") | [+7.9%](rerank.md "from rerank.md") | [4%](rerank.md "from rerank.md") |
-| oracle @20 | [0.5540](rerank.md "from rerank.md") | [0.5932](rerank.md "from rerank.md") | [0.0393](rerank.md "from rerank.md") | [+7.1%](rerank.md "from rerank.md") | none |
-| oracle @50 | [0.7066](rerank.md "from rerank.md") | [0.7342](rerank.md "from rerank.md") | [0.0276](rerank.md "from rerank.md") | [+3.9%](rerank.md "from rerank.md") | [22%](rerank.md "from rerank.md") |
-| oracle @100 | [0.7968](rerank.md "from rerank.md") | [0.8212](rerank.md "from rerank.md") | [0.0244](rerank.md "from rerank.md") | [+3.1%](rerank.md "from rerank.md") | [31%](rerank.md "from rerank.md") |
+| oracle @10 | [0.4307](rerank.md "from rerank.md") | [0.4648](rerank.md "from rerank.md") | [0.0341](rerank.md "from rerank.md") | [+7.9%](rerank.md "from rerank.md") | [4%](llm_compare.md "from llm_compare.md") [[−14%](llm_compare.md "from llm_compare.md"), [21%](llm_compare.md "from llm_compare.md")] |
+| oracle @20 | [0.5540](rerank.md "from rerank.md") | [0.5932](rerank.md "from rerank.md") | [0.0393](rerank.md "from rerank.md") | [+7.1%](rerank.md "from rerank.md") | [−11%](llm_compare.md "from llm_compare.md") [[−46%](llm_compare.md "from llm_compare.md"), [16%](llm_compare.md "from llm_compare.md")] |
+| oracle @50 | [0.7066](rerank.md "from rerank.md") | [0.7342](rerank.md "from rerank.md") | [0.0276](rerank.md "from rerank.md") | [+3.9%](rerank.md "from rerank.md") | [22%](llm_compare.md "from llm_compare.md") [[−12%](llm_compare.md "from llm_compare.md"), [49%](llm_compare.md "from llm_compare.md")] |
+| oracle @100 | [0.7968](rerank.md "from rerank.md") | [0.8212](rerank.md "from rerank.md") | [0.0244](rerank.md "from rerank.md") | [+3.1%](rerank.md "from rerank.md") | [31%](llm_compare.md "from llm_compare.md") [[−3%](llm_compare.md "from llm_compare.md"), [56%](llm_compare.md "from llm_compare.md")] |
+
+Intervals are paired on occupation, with the first stage's gap and the oracle's
+resampled on the same queries (experiment 16).
 
 This speaks directly to the residual experiment 12 left unexplained. The
 Portuguese shortlist contains nearly as much gold as the English one, recall@100
 of [0.361](rerank.md "from rerank.md") against [0.388](rerank.md "from rerank.md"), a [7.5%](rerank.md "from rerank.md") difference. Give both perfect ordering of the top
-100 and the absolute gap falls from [0.0355](rerank.md "from rerank.md") to [0.0244](rerank.md "from rerank.md"), removing [31%](rerank.md "from rerank.md") of it.
+100 and the absolute gap falls from [0.0355](rerank.md "from rerank.md") to [0.0244](rerank.md "from rerank.md"), a point estimate of [31%](llm_compare.md "from llm_compare.md").
+The interval runs from [−3%](llm_compare.md "from llm_compare.md") to [56%](llm_compare.md "from llm_compare.md"): perfect ordering may remove up to about half of
+the gap at depth 100, but the effect is not distinguishable from zero on this
+split.
 
 **Correction.** This section originally said most of the residual gap was
 ordering, because the relative gap falls from [10.3%](rerank.md "from rerank.md") to [3.1%](rerank.md "from rerank.md"). That reading was
 wrong. Perfect ordering more than doubles both scores, so the relative gap
-shrinks even where the distance between the languages barely moves. In absolute
-terms ordering accounts for about a third of the residual, and only with a
-shortlist of 50 or more: at a depth of 20, perfect ordering leaves the gap
-slightly wider than the first stage's. Experiment 15 confirms this from the
-other side.
+shrinks even where the distance between the languages barely moves. A later
+version said ordering accounts for about a third of the residual in absolute
+terms. That was a point estimate, and the paired interval includes zero at
+every depth. At a depth of 20, perfect ordering leaves the gap where it was,
+which experiment 15 confirms from the other side.
 
 ### Cost
 
@@ -1169,11 +1230,12 @@ off-the-shelf cross-encoders.
 
 ## 15: Listwise LLM reranking, local and API
 
-The cross-encoders in experiment 14 score each candidate on its own, so the best
-they can do is reproduce the first stage's ordering. A listwise reranker gets
-the occupation description and the whole shortlist in one prompt and returns the
-numbers of the 10 best candidates, so it can compare candidates against each
-other, which is the operation the oracle's headroom requires.
+The cross-encoders in experiment 14 score each candidate on its own, and did no
+better than the first stage's ordering. A listwise reranker gets the occupation
+description and the whole shortlist in one prompt and returns the numbers of the
+10 best candidates, so it can compare candidates against each other, which a
+pointwise model cannot. Whether that is what makes the difference is a separate
+question, taken up after the results.
 
 The model answers with candidate numbers, never skill names, so a malformed
 response is an out-of-range number, a repeat or an omission, and each is
@@ -1208,6 +1270,17 @@ to [+19.8%](llm_rerank_deepseek.md "from llm_rerank_deepseek.md, rerank.md") and
 This is the first method in the project to improve on the tuned hybrid. Both
 models were given the same 20 candidates the cross-encoders saw, so the
 difference is in what the model does with them.
+
+**What this does not establish** is that listwise scoring is the reason. The
+cross-encoders are much smaller models, trained as rerankers; the listwise
+models are a 4B instruction-tuned model and a far larger API model, from
+different families and trained for different tasks. Model size, family and
+training are confounded with listwise against pointwise, so the gain cannot yet
+be attributed to comparing candidates with each other. The control is
+`Qwen3-Reranker-4B`: built on the same Qwen3 4B base as the local listwise
+model, scoring one pair at a time, through the scoring path experiment 14
+already uses for its smaller sibling. Until it is run, the listwise explanation is
+a hypothesis.
 
 ### Headroom captured
 
@@ -1353,19 +1426,20 @@ and the gains concentrate in exactly the queries where lexical matching failed.
 A method that had improved the mean while leaving the distribution shape
 unchanged would have been doing something else.
 
-**Fusion then widens the gap again.** Combining lexical with dense retrieval is
-the best-scoring system, [0.3794](rerank.md "from rerank.md") in English and [0.3439](rerank.md "from rerank.md") in Portuguese, but it
-helps English more, so the gap returns to [10.3%](rerank.md "from rerank.md"). The highest-scoring
-configuration and the most language-equitable one are not the same, which
-follows directly from the lexical diagnosis: bringing BM25 back in brings back
-the vocabulary-matching problem it carries.
+**Fusion adds quality without measurably moving the gap.** Combining lexical
+with dense retrieval is the best-scoring first stage, [0.3794](rerank.md "from rerank.md") in English and
+[0.3439](rerank.md "from rerank.md") in Portuguese. Read off the means it helps English more, and the relative
+gap rises to [10.3%](rerank.md "from rerank.md"), which earlier versions reported as fusion widening the gap
+again. Paired on occupation the change is [+0.0063](llm_compare.md "from llm_compare.md") [[−0.0011](llm_compare.md "from llm_compare.md"), [+0.0140](llm_compare.md "from llm_compare.md")], so that
+reading rested on point estimates.
 
-**About a third of the residual is ordering.** Experiment 12 showed it is
+**Ordering may account for part of the residual.** Experiment 12 showed it is
 uniform across the score distribution rather than concentrated in a tail, so the
 terminology explanation does not carry over. Experiment 14 finds the Portuguese
 shortlist contains nearly as much gold as the English one, recall@100 of [0.361](rerank.md "from rerank.md")
-against [0.388](rerank.md "from rerank.md"), and perfect ordering of the top 100 removes [31%](rerank.md "from rerank.md") of the absolute
-gap. The rest is unexplained.
+against [0.388](rerank.md "from rerank.md"). Perfect ordering of the top 100 may remove up to about half of
+the absolute gap, but the effect is not distinguishable from zero on this split
+([31%](llm_compare.md "from llm_compare.md"), [[−3%](llm_compare.md "from llm_compare.md"), [56%](llm_compare.md "from llm_compare.md")]). The residual is unexplained.
 
 **LLM reranking lifts both languages by the same amount.** Listwise reranking is
 the only reranking method here that beats the first stage, by about [10%](llm_rerank_qwen3-4b-local.md "from llm_rerank_qwen3-4b-local.md, rerank.md") with a

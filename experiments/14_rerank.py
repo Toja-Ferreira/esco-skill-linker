@@ -33,12 +33,15 @@ Writes:
     results/rerank_dev.csv
     results/rerank_test.csv
     results/rerank_per_query.csv
+    results/rerank_oracle_per_query.csv   oracle at every depth, per query;
+                                          model-independent, so not tagged
     results/rerank.md
 
 Usage:
     python -m experiments.14_rerank
     python -m experiments.14_rerank --dev-sample 300
     python -m experiments.14_rerank --render-only
+    python -m experiments.14_rerank --oracle-only   oracle per query, no model
 """
 
 from __future__ import annotations
@@ -175,6 +178,16 @@ def oracle_rerank(fused, query_uris, gold, depth):
     return per_query
 
 
+ORACLE_PER_QUERY = RESULTS / "rerank_oracle_per_query.csv"
+
+
+def oracle_rows(lang, fused, query_uris, gold) -> list[dict]:
+    """Per-query oracle metrics at every depth, as rows."""
+    return [{"language": lang, "depth": depth, "occupationUri": q, **m}
+            for depth in DEPTHS
+            for q, m in oracle_rerank(fused, query_uris, gold, depth).items()]
+
+
 def run_split(reranker, fused, query_uris, occ_desc, docs, gold, max_depth,
               depths):
     """Score every (query, candidate) pair once, then evaluate each depth."""
@@ -219,6 +232,9 @@ def main() -> None:
     ap.add_argument("--no-fp16", action="store_true")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--render-only", action="store_true")
+    ap.add_argument("--oracle-only", action="store_true",
+                    help="write per-query oracle scores from data/runs/ and "
+                         "stop; loads no model")
     args = ap.parse_args()
 
     tag = args.tag or ("" if args.model == "bge-m3" else f"_{args.model}")
@@ -236,6 +252,13 @@ def main() -> None:
         return
 
     splits, texts, labels, gold = load()
+    if args.oracle_only:
+        test_uris = splits[splits["split"] == "test"]["conceptUri"].tolist()
+        rows = [r for lang in LANGUAGES
+                for r in oracle_rows(lang, first_stage(lang, "test"), test_uris, gold)]
+        pd.DataFrame(rows).to_csv(ORACLE_PER_QUERY, index=False)
+        print(f"wrote results/{ORACLE_PER_QUERY.name}")
+        return
     rng = np.random.default_rng(args.seed)
     dev_all = splits[splits["split"] == "dev"]["conceptUri"].tolist()
     dev_uris = sorted(rng.choice(dev_all, size=min(args.dev_sample,
@@ -263,6 +286,7 @@ def main() -> None:
         print(f"sanity check: relevant {good:.4f} > irrelevant {bad:.4f}")
     print()
     dev_rows, test_rows, ceil_rows, pq_rows, diag_rows = [], [], [], [], []
+    oracle_pq_rows: list[dict] = []
 
     for lang in LANGUAGES:
         occ = texts[(texts["language"] == lang)
@@ -419,6 +443,8 @@ def main() -> None:
               f"gold-vs-rest AUC {np.mean(aucs):.3f} "
               f"(0.5 = chance)")
 
+        oracle_pq_rows += oracle_rows(lang, fused_test, test_uris, gold)
+
         # Oracle at every depth: the headroom a perfect reranker would have.
         for depth in DEPTHS:
             o_pq = oracle_rerank(fused_test, test_uris, gold, depth)
@@ -448,6 +474,7 @@ def main() -> None:
     test.to_csv(RESULTS / f"rerank_test{tag}.csv", index=False)
     ceil.to_csv(RESULTS / f"rerank_ceiling{tag}.csv", index=False)
     pd.DataFrame(pq_rows).to_csv(RESULTS / f"rerank_per_query{tag}.csv", index=False)
+    pd.DataFrame(oracle_pq_rows).to_csv(ORACLE_PER_QUERY, index=False)
     diag = pd.DataFrame(diag_rows)
     diag.to_csv(RESULTS / f"rerank_diagnostics{tag}.csv", index=False)
     (RESULTS / f"rerank{tag}.md").write_text(

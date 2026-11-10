@@ -6,8 +6,9 @@ how well different retrieval approaches do it.
 
 Portuguese-focused, evaluated against English as the comparison language.
 
-> **Status:** complete. Benchmark frozen; lexical, dense, fusion, cross-encoder and LLM
-> reranking scored across sixteen experiments. Full findings in
+> **Status:** method comparison complete. Benchmark frozen; lexical, dense, fusion,
+> cross-encoder and LLM reranking scored across sixteen experiments. Four planned slices are
+> not yet run; see [Future work](#future-work). Full findings in
 > [`results/README.md`](results/README.md).
 
 ## Results so far
@@ -51,9 +52,12 @@ Dense retrieval removes about half of the language gap ([51%](results/bi_encoder
 relative gap), and does so asymmetrically: Portuguese gains [23.5%](results/bi_encoder.md "from bi_encoder.md, bm25_stopwords.md") where English gains [10.0%](results/bi_encoder.md "from bi_encoder.md, bm25_stopwords.md"). A study reporting only the English figure
 would have called that a modest [10%](results/bi_encoder.md "from bi_encoder.md, bm25_stopwords.md") improvement and missed what it was doing.
 
-Combining lexical with dense retrieval adds another [6%](results/rerank.md "from rerank.md, bi_encoder.md") in English and [5%](results/rerank.md "from rerank.md, bi_encoder.md") in Portuguese on top, but widens the language gap
-again, because BM25 helps English more than Portuguese. The best-performing system is not the
-most language-equitable one.
+Combining lexical with dense retrieval adds another [6%](results/rerank.md "from rerank.md, bi_encoder.md") in English and [5%](results/rerank.md "from rerank.md, bi_encoder.md") in Portuguese on top.
+Read off the means, that widens the language gap again, from [0.029](results/bi_encoder.md "from bi_encoder.md") to [0.035](results/rerank.md "from rerank.md"), and an earlier
+version of this README concluded that the best-performing system is not the most
+language-equitable one. Paired on occupation, the change is [+0.006](results/llm_compare.md "from llm_compare.md") [[−0.001](results/llm_compare.md "from llm_compare.md"), [+0.014](results/llm_compare.md "from llm_compare.md")],
+not distinguishable from zero, so that conclusion rested on point estimates. No stage after
+dense retrieval measurably moves the gap in either direction.
 
 After fusion the bottleneck moved to ordering. A flawless reranker over the same top-100
 candidates would reach [0.797](results/rerank.md "from rerank.md") in Portuguese and [0.821](results/rerank.md "from rerank.md") in English, more than double the best
@@ -65,7 +69,9 @@ query on top of the first stage.
 
 Listwise LLM reranking does improve on it. The model sees the description and all 20 top
 candidates in one prompt and picks the best 10, so it can compare candidates against each
-other, which a cross-encoder scoring one pair at a time cannot. A local Qwen3-4B adds about [10%](results/llm_rerank_qwen3-4b-local.md "from llm_rerank_qwen3-4b-local.md, rerank.md")
+other, which a cross-encoder scoring one pair at a time cannot. Whether that is why it helps is
+not yet tested: the LLMs are also larger than the cross-encoders and from different model
+families, and the same-size pointwise control has not been run. A local Qwen3-4B adds about [10%](results/llm_rerank_qwen3-4b-local.md "from llm_rerank_qwen3-4b-local.md, rerank.md")
 in both languages. DeepSeek's API model (`deepseek-flash`) adds [18%](results/llm_rerank_deepseek.md "from llm_rerank_deepseek.md, rerank.md") to [20%](results/llm_rerank_deepseek.md "from llm_rerank_deepseek.md, rerank.md"), beats the local
 model on the same queries by about [0.03](results/llm_compare.md "from llm_compare.md") nDCG@10 in both languages, and captures about a third
 of the headroom available at that depth against the local model's sixth. The whole experiment,
@@ -76,14 +82,15 @@ return is reproducibility: it gave identical scores on a rerun, where the API mo
 
 No reranker narrowed the language gap. English leads by about [0.035](results/rerank.md "from rerank.md") nDCG@10 before reranking
 and after either model, and the paired intervals on the change all include zero. The oracle
-predicts this: at a depth of 20 even perfect ordering would leave the gap as it is, and
-perfect ordering of the full top 100 would remove only about a third of it. An earlier version
+predicts this: at a depth of 20 even perfect ordering would leave the gap as it is. Perfect
+ordering of the full top 100 may remove up to about half of it, but that effect is not
+distinguishable from zero on this split ([31%](results/llm_compare.md "from llm_compare.md"), [[−3%](results/llm_compare.md "from llm_compare.md"), [56%](results/llm_compare.md "from llm_compare.md")]). An earlier version
 of this README said most of the remaining gap was an ordering problem. That came from comparing
 relative gaps at very different score levels, and the absolute figures do not support it.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="results/figures/language_gap_dark.svg">
-  <img alt="English minus Portuguese nDCG@10 per system. The gap halves from BM25 to dense retrieval, then stays near 0.035 through fusion and both rerankers, with overlapping intervals. Perfect ordering of the top 20 would not shrink it; of the top 100, it would fall to 0.024." src="results/figures/language_gap_light.svg">
+  <img alt="English minus Portuguese nDCG@10 per system. The gap halves from BM25 to dense retrieval, then stays near 0.035 through fusion and both rerankers, with overlapping intervals. Perfect ordering of the top 20 would not shrink it; of the top 100, it would fall to 0.024, a reduction not distinguishable from zero." src="results/figures/language_gap_light.svg">
 </picture>
 
 Three results worth noting alongside. A [308](results/figure_sources.md#model.embeddinggemma.params_m "recorded in figure_sources.md")M model beat a [4](results/figure_sources.md#model.qwen3emb.params_b "recorded in figure_sources.md")B one in both languages, and
@@ -91,8 +98,10 @@ Three results worth noting alongside. A [308](results/figure_sources.md#model.em
 architecture. Absent stopword handling turned out to cost Portuguese about a quarter of the
 lexical gap, which was a flaw in this repository rather than in the data. And reciprocal rank
 fusion, usually presented as the safe parameter-free default, failed to beat its own inputs in
-[four](results/fusion.md "from fusion.md") of [five](results/fusion.md "from fusion.md") combinations, while weighted fusion with a dev-tuned weight succeeded in all
-[five](results/fusion.md "from fusion.md").
+[four](results/fusion.md "from fusion.md") of [five](results/fusion.md "from fusion.md") combinations at its conventional constant, while weighted fusion with a dev-tuned weight
+succeeded in all [five](results/fusion.md "from fusion.md"). That comparison was tuned against untuned. Given the same dev tuning, RRF
+beats its inputs in [four](results/fusion_rrf_tuned.md "from fusion_rrf_tuned.md") of [five](results/fusion.md "from fusion.md"), so the default failed rather than the method, though weighted
+fusion still scores significantly higher for the hybrid used here.
 
 Full analysis in [`results/README.md`](results/README.md).
 
@@ -347,10 +356,11 @@ skills.
 
 precision@k, recall@k, MRR, nDCG@k.
 
-Also reported: **top-k accuracy in the Commission's form**, the share of gold concepts
-appearing in the top k, at k = 1, 3, 5, 10. The comparison is not like-for-like, since the
-task, corpus and label provenance all differ, but without it these results cannot be set beside
-the only published numbers in this space.
+The Commission's pilot reports top-k accuracy, the share of reviewer-selected concepts
+appearing in the tool's top k. It is not reported here. A pilot learning outcome carries 1 to
+3 concepts; an occupation here carries around [22](results/dataset_profile.md "from dataset_profile.md"), so the same share is capped far below
+1 at small k (see the recall ceilings in [`results/README.md`](results/README.md)) and would
+not be comparable with the pilot's figures even as a rough reference.
 
 ### Slices
 
@@ -360,15 +370,10 @@ the only published numbers in this space.
   caused by missing text from the part that is not.
 - **Gold set size:** quartiles by number of essential skills, since the benchmark's query shape
   differs from the target application's.
-- **Transversal:** with and without the [452](results/dataset_profile.md "from dataset_profile.md") transversal skills, which flood similarity-based
-  rankings.
-- **Concept type:** knowledge against skill/competence.
-- **Sector:** via `iscoGroup` and `naceCode`, both fully populated on occupations.
-- **Language skills:** reported separately, following the Commission's finding that proficiency
-  levels are a known failure case.
 
-The language and text-field slices are reported in every experiment so far. Gold set size is
-reported in experiment 02. The remaining slices are part of the design and not yet run.
+The language slice is reported in every experiment, the text-field slice in experiments 01, 05
+and 10, and gold set size in experiment 02, for BM25 only. Further slices were planned and
+are listed under [Future work](#future-work).
 
 ### Cross-lingual evaluation
 
@@ -416,13 +421,15 @@ an analysis over existing runs rather than a separate retrieval pipeline.
 
 - **Occupation to skill links describe work, not teaching.** Performance on this benchmark is
   a proxy for the course-documentation use case rather than a measurement of it.
-- **Query shape differs from the target use case.** Benchmark queries are occupation
-  descriptions with a mean of [22.5](results/split_profile.md "from split_profile.md") gold skills each. Real learning outcomes run 10 to 15 words
-  with 1 to 3 concepts. [Experiment 02](results/README.md) tests how far this matters by
-  slicing results into gold-set-size quartiles: the ranking of methods and the size of the
-  Portuguese deficit are stable across quartiles, and performance on the smallest bucket
-  (median [12](results/gold_size_slice.md "from gold_size_slice.md") gold skills) matches the pooled figures. Query *length* remains untested, since
-  every query here is a full occupation description.
+- **Query shape differs from the target use case.** Test queries are occupation descriptions
+  with a mean of [22.5](results/split_profile.md "from split_profile.md") essential skills each ([22.2](results/dataset_profile.md "from dataset_profile.md") across all occupations). Real learning
+  outcomes run 10 to 15 words with 1 to 3 concepts. [Experiment 02](results/README.md) tests
+  how far this matters by slicing results into gold-set-size quartiles, but only for one
+  configuration: BM25 over labels and descriptions, stemmed, without stopword removal. For
+  that configuration the Portuguese deficit holds in every quartile, and performance on the
+  smallest bucket (median [12](results/gold_size_slice.md "from gold_size_slice.md") essential skills) matches the pooled figures. Whether dense
+  retrieval, fusion and reranking behave the same way on small gold sets is untested, and so
+  is query *length*, since every query here is a full occupation description.
 - **Any lexical PT to EN gap is partly a corpus artefact.** With [23.8](results/dataset_profile.md "from dataset_profile.md")x fewer alternative labels
   on the skills being retrieved, a BM25 gap over labels measures ESCO's label coverage as well
   as the method. [Experiment 01](results/README.md) separates the two: adding alternative
@@ -449,6 +456,21 @@ an analysis over existing runs rather than a separate retrieval pipeline.
   deterministic at temperature 0: two identical runs differed by up to [0.0015](results/llm_rerank_deepseek.md "from llm_rerank_deepseek.md") nDCG@10, small
   against its [0.03](results/llm_compare.md "from llm_compare.md") lead over the local model, but enough that the figures cannot be reproduced
   exactly.
+
+## Future work
+
+Slices that are part of the benchmark design and not yet run:
+
+- **Transversal:** with and without the [452](results/dataset_profile.md "from dataset_profile.md") transversal skills, which flood similarity-based
+  rankings.
+- **Concept type:** knowledge against skill/competence.
+- **Sector:** via `iscoGroup` and `naceCode`, both fully populated on occupations.
+- **Language skills:** reported separately, following the Commission's finding that proficiency
+  levels are a known failure case.
+
+One control is also outstanding: `Qwen3-Reranker-4B`, a pointwise reranker built on the same
+base as the local listwise model, to separate listwise scoring from model size and family in
+[experiment 15](results/README.md).
 
 ## Repository layout
 

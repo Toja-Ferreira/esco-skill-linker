@@ -33,6 +33,7 @@ Usage:
     python -m experiments.13_fusion
     python -m experiments.13_fusion --dense-model qwen3-4b
     python -m experiments.13_fusion --render-only
+    python -m experiments.13_fusion --rrf-tuned   tune RRF on dev, own files
 """
 
 from __future__ import annotations
@@ -225,6 +226,113 @@ def paired_delta(a: dict, b: dict, metric: str = SELECT_ON,
     }
 
 
+# RRF's constant, swept on dev in --rrf-tuned mode. 60 is the conventional
+# default the main run uses.
+RRF_K_GRID = [1, 5, 10, 20, 40, 60, 100, 200]
+
+
+def rrf_tuned(runs, query_uris, gold, combos, inputs) -> None:
+    """Tune RRF's k and run weights on dev, the same way weighted score fusion
+    is tuned, then score the selected setting once on test against the
+    stronger of its inputs. Answers whether RRF failed only for want of the
+    tuning weighted fusion was given. Writes its own files, so the main run's
+    results are untouched."""
+    test_q, dev_q = query_uris["test"], query_uris["dev"]
+    singles = {}
+    for name in {n for ns in inputs.values() for n in ns}:
+        method, lang = name.rsplit(" ", 1)
+        singles[name] = score(runs[(method, lang, "test")], test_q, gold)[1]
+
+    def weight_grid(n):
+        if n == 2:
+            return [(w, None, [w, 1.0 - w]) for w in WEIGHT_GRID]
+        return [(a, b, [a * b, a * (1 - b), (1 - a) * b, (1 - a) * (1 - b)])
+                for a in WEIGHT_GRID_4WAY for b in WEIGHT_GRID_4WAY]
+
+    # Weighted score fusion at its committed dev-selected weights, rebuilt on
+    # test for the paired comparison, and checked against the committed score.
+    wsf_dev = pd.read_csv(RESULTS / "fusion_dev.csv")
+    wsf_test = pd.read_csv(RESULTS / "fusion_test.csv").query("fusion == 'wsf'")
+
+    def wsf_per_query(name, keys):
+        r = wsf_dev[wsf_dev["combination"] == name]
+        r = r.loc[r[SELECT_ON].idxmax()]
+        a = r["weight"]
+        wts = ([a, 1.0 - a] if len(keys) == 2 else
+               [a * r["beta"], a * (1 - r["beta"]),
+                (1 - a) * r["beta"], (1 - a) * (1 - r["beta"])])
+        agg, pq = score(weighted_score_fusion(
+            [runs[(m, l, "test")] for m, l in keys], wts), test_q, gold)
+        committed = wsf_test.loc[wsf_test["combination"] == name, SELECT_ON].item()
+        if abs(agg[SELECT_ON] - committed) > 1e-12:
+            raise SystemExit(f"{name}: rebuilt wsf {agg[SELECT_ON]} != committed {committed}")
+        return agg[SELECT_ON], pq
+
+    dev_rows, test_rows = [], []
+    for name, keys in combos.items():
+        wsf_score, wsf_pq = wsf_per_query(name, keys)
+        best = None
+        for k in RRF_K_GRID:
+            for w, beta, wts in weight_grid(len(keys)):
+                fused = reciprocal_rank_fusion(
+                    [runs[(m, l, "dev")] for m, l in keys], k=k, weights=wts)
+                s = score(fused, dev_q, gold)[0][SELECT_ON]
+                dev_rows.append({"combination": name, "k": k, "weight": w,
+                                 "beta": beta, SELECT_ON: s})
+                if best is None or s > best[0]:
+                    best = (s, k, w, beta, wts)
+        _, k, w, beta, wts = best
+        base_name = max(inputs[name], key=lambda n: aggregate(
+            list(singles[n].values()))[SELECT_ON])
+        for label, kk, ww in (("rrf", 60, None), ("rrf tuned", k, wts)):
+            fused = reciprocal_rank_fusion(
+                [runs[(m, l, "test")] for m, l in keys], k=kk, weights=ww)
+            agg, pq = score(fused, test_q, gold)
+            lo, hi = bootstrap_ci(list(pq.values()), SELECT_ON)
+            test_rows.append({
+                "combination": name, "fusion": label, "k": kk,
+                "weight": w if ww is not None else np.nan,
+                "beta": beta if ww is not None else np.nan,
+                SELECT_ON: agg[SELECT_ON], "ndcg@10_lo": lo, "ndcg@10_hi": hi,
+                "baseline": base_name,
+                **paired_delta(pq, singles[base_name]),
+                "wsf_ndcg@10": wsf_score,
+                **{f"vs_wsf_{k}": v for k, v in paired_delta(pq, wsf_pq).items()
+                   if k != "queries"}})
+        r = test_rows[-1]
+        print(f"  {name:<24} k={k:<3} weight={w} beta={beta}  test {SELECT_ON} "
+              f"{r[SELECT_ON]:.4f}, over {base_name} {r['mean_delta']:+.4f} "
+              f"[{r['delta_lo']:+.4f}, {r['delta_hi']:+.4f}]")
+
+    dev, test = pd.DataFrame(dev_rows), pd.DataFrame(test_rows)
+    dev.to_csv(RESULTS / "fusion_rrf_tuned_dev.csv", index=False)
+    test.to_csv(RESULTS / "fusion_rrf_tuned.csv", index=False)
+    lines = ["# Reciprocal rank fusion, tuned on dev\n",
+             f"k swept over {RRF_K_GRID} and run weights over the same grids as "
+             f"weighted score fusion, selected on {len(dev_q):,} dev queries by "
+             f"{SELECT_ON}, then scored once on {len(test_q)} test queries. "
+             "`rrf` is the untuned default (k = 60, equal weights) for "
+             "reference. Paired differences are against the stronger single "
+             "input and against weighted score fusion at its dev-selected "
+             "weights, 95% percentile bootstrap over queries.\n",
+             "| combination | fusion | k | weight | pt weight | nDCG@10 | "
+             "over better input (95% CI) | wins | minus weighted score fusion (95% CI) |",
+             "|---|---|---:|---:|---:|---:|---|---:|---|"]
+    for _, r in test.iterrows():
+        opt = lambda v: "" if pd.isna(v) else f"{v:.1f}"
+        lines.append(
+            f"| {r['combination']} | {r['fusion']} | {r['k']} | {opt(r['weight'])} "
+            f"| {opt(r['beta'])} | {r[SELECT_ON]:.4f} | {r['mean_delta']:+.4f} "
+            f"[{r['delta_lo']:+.4f}, {r['delta_hi']:+.4f}] | {r['share_positive']:.0%} "
+            f"| {r['vs_wsf_mean_delta']:+.4f} [{r['vs_wsf_delta_lo']:+.4f}, "
+            f"{r['vs_wsf_delta_hi']:+.4f}] |")
+    (RESULTS / "fusion_rrf_tuned.md").write_text("\n".join(lines) + "\n",
+                                                encoding="utf-8")
+    print("\nwrote results/fusion_rrf_tuned_dev.csv")
+    print("wrote results/fusion_rrf_tuned.csv")
+    print("wrote results/fusion_rrf_tuned.md")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dense-model", default=DENSE_DEFAULT, choices=list(MODELS))
@@ -232,6 +340,9 @@ def main() -> None:
     ap.add_argument("--device", default=None)
     ap.add_argument("--no-cache", action="store_true")
     ap.add_argument("--render-only", action="store_true")
+    ap.add_argument("--rrf-tuned", action="store_true",
+                    help="tune RRF's k and weights on dev, score once on test, "
+                         "write fusion_rrf_tuned*; the main results are untouched")
     args = ap.parse_args()
 
     if args.render_only:
@@ -261,6 +372,11 @@ def main() -> None:
         "all four": [("bm25", "pt"), ("bm25", "en"),
                      (dense, "pt"), (dense, "en")],
     }
+    # The single runs each combination fuses, for paired comparisons.
+    inputs = {name: [f"{m} {l}" for m, l in keys] for name, keys in combos.items()}
+    if args.rrf_tuned:
+        rrf_tuned(runs, query_uris, gold, combos, inputs)
+        return
 
     test_rows, dev_rows = [], []
     per_query_store: dict[str, dict] = {}
@@ -359,13 +475,6 @@ def main() -> None:
           f"(dev-selected lexical weight {alpha:.1f}, pt weight {beta:.1f})")
 
     # Paired comparisons against the stronger of each combination's inputs.
-    inputs = {
-        "hybrid pt": ["bm25 pt", f"{dense} pt"],
-        "hybrid en": ["bm25 en", f"{dense} en"],
-        f"bilingual {dense}": [f"{dense} pt", f"{dense} en"],
-        "bilingual bm25": ["bm25 pt", "bm25 en"],
-        "all four": ["bm25 pt", "bm25 en", f"{dense} pt", f"{dense} en"],
-    }
     singles = {r["combination"]: r["ndcg@10"]
                for r in test_rows if r["fusion"] == "single"}
     paired_rows = []
