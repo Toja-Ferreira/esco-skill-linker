@@ -195,6 +195,8 @@ The registry is `experiments/figures.py`.
 | <a id="bm25x.pt.preferred.stemmed.stop_gain"></a>`bm25x.pt.preferred.stemmed.stop_gain` | 0.2670314738055215 | formula | {bm25x.pt.preferred.stemmed.removed.ndcg10} / {bm25x.pt.preferred.stemmed.kept.ndcg10} - 1 |
 | <a id="bm25x.pt.preferred.stop_token_share"></a>`bm25x.pt.preferred.stop_token_share` | 0.30612244897959195 | formula | 1 - {bm25x.pt.preferred.stemmed.removed.tokens} / {bm25x.pt.preferred.stemmed.kept.tokens} |
 | <a id="bm25x.stopword_pp_removed"></a>`bm25x.stopword_pp_removed` | 6.18244581443701 | formula | -{bm25x.gap_change_pp.description.stemmed} |
+| <a id="ce.auc.max"></a>`ce.auc.max` | 0.717117403800658 | formula | max({ce.bge.pt.auc}, {ce.bge.en.auc}, {ce.qwen06.pt.auc}, {ce.qwen06.en.auc}) |
+| <a id="ce.auc.min"></a>`ce.auc.min` | 0.6676582988267771 | formula | min({ce.bge.pt.auc}, {ce.bge.en.auc}, {ce.qwen06.pt.auc}, {ce.qwen06.en.auc}) |
 | <a id="ce.bge.dev.en.d0"></a>`ce.bge.dev.en.d0` | 0.3932618898490909 | lookup | `rerank_dev.csv` [language=en, depth=0] `ndcg@10` |
 | <a id="ce.bge.dev.en.d10"></a>`ce.bge.dev.en.d10` | 0.3867792246317855 | lookup | `rerank_dev.csv` [language=en, depth=10] `ndcg@10` |
 | <a id="ce.bge.dev.en.d100"></a>`ce.bge.dev.en.d100` | 0.3137705901342935 | lookup | `rerank_dev.csv` [language=en, depth=100] `ndcg@10` |
@@ -274,6 +276,16 @@ The registry is `experiments/figures.py`.
 | <a id="ce.qwen06.sanity_margin"></a>`ce.qwen06.sanity_margin` | 370 | constant | Qwen3-Reranker sanity check printed by `experiments/14_rerank.py` at run time. In the run log only; not reproducible from results/ |
 | <a id="ce.qwen06.sanity_p_no"></a>`ce.qwen06.sanity_p_no` | 0.963 | formula | 1 - {ce.qwen06.sanity_p_yes} |
 | <a id="ce.qwen06.sanity_p_yes"></a>`ce.qwen06.sanity_p_yes` | 0.037 | constant | P(yes) for the known-relevant sanity pair, from the same run log. Not reproducible from results/ |
+| <a id="ce.qwen4b.en.auc"></a>`ce.qwen4b.en.auc` | 0.7787152644325632 | lookup | `rerank_diagnostics_qwen3-4b.csv` [language=en] `auc` |
+| <a id="ce.qwen4b.en.ms_per_query"></a>`ce.qwen4b.en.ms_per_query` | 849.9 | lookup | `rerank_test_qwen3-4b.csv` [language=en, stage=reranked] `ms_per_query` |
+| <a id="ce.qwen4b.en.ndcg10"></a>`ce.qwen4b.en.ndcg10` | 0.4139621640399286 | lookup | `rerank_test_qwen3-4b.csv` [language=en, stage=reranked] `ndcg@10` |
+| <a id="ce.qwen4b.en.random_ndcg"></a>`ce.qwen4b.en.random_ndcg` | 0.2407638846452536 | lookup | `rerank_diagnostics_qwen3-4b.csv` [language=en] `random_ndcg` |
+| <a id="ce.qwen4b.en.recovered"></a>`ce.qwen4b.en.recovered` | 1.2493468345685477 | formula | ({ce.qwen4b.en.ndcg10} - {ce.qwen4b.en.random_ndcg}) / ({hybrid.test.en.ndcg10} - {ce.qwen4b.en.random_ndcg}) |
+| <a id="ce.qwen4b.pt.auc"></a>`ce.qwen4b.pt.auc` | 0.7612637248264214 | lookup | `rerank_diagnostics_qwen3-4b.csv` [language=pt] `auc` |
+| <a id="ce.qwen4b.pt.ms_per_query"></a>`ce.qwen4b.pt.ms_per_query` | 1081 | lookup | `rerank_test_qwen3-4b.csv` [language=pt, stage=reranked] `ms_per_query` |
+| <a id="ce.qwen4b.pt.ndcg10"></a>`ce.qwen4b.pt.ndcg10` | 0.3693215953830358 | lookup | `rerank_test_qwen3-4b.csv` [language=pt, stage=reranked] `ndcg@10` |
+| <a id="ce.qwen4b.pt.random_ndcg"></a>`ce.qwen4b.pt.random_ndcg` | 0.2160595596849709 | lookup | `rerank_diagnostics_qwen3-4b.csv` [language=pt] `random_ndcg` |
+| <a id="ce.qwen4b.pt.recovered"></a>`ce.qwen4b.pt.recovered` | 1.1985818092028708 | formula | ({ce.qwen4b.pt.ndcg10} - {ce.qwen4b.pt.random_ndcg}) / ({hybrid.test.pt.ndcg10} - {ce.qwen4b.pt.random_ndcg}) |
 | <a id="ce.qwen_over_bge.en.ms"></a>`ce.qwen_over_bge.en.ms` | 4.661764705882353 | formula | {ce.qwen06.en.ms_per_query} / {ce.bge.en.ms_per_query} |
 | <a id="ce.recovered.max"></a>`ce.recovered.max` | 1.0330428998269052 | formula | max({ce.bge.pt.recovered}, {ce.bge.en.recovered}, {ce.qwen06.pt.recovered}, {ce.qwen06.en.recovered}) |
 | <a id="ce.recovered.min"></a>`ce.recovered.min` | 0.8239844641036052 | formula | min({ce.bge.pt.recovered}, {ce.bge.en.recovered}, {ce.qwen06.pt.recovered}, {ce.qwen06.en.recovered}) |
@@ -823,6 +835,40 @@ The registry is `experiments/figures.py`.
 | <a id="pilot.p3.top1"></a>`pilot.p3.top1` | 0.4465 | constant | European Commission pilot, phase 3 report (linked in the README's prior art section) |
 | <a id="pilot.p3.top3"></a>`pilot.p3.top3` | 0.6398 | constant | European Commission pilot, phase 3 report (linked in the README's prior art section) |
 | <a id="pilot.p3.top5"></a>`pilot.p3.top5` | 0.7035 | constant | European Commission pilot, phase 3 report (linked in the README's prior art section) |
+| <a id="pw.format_lang_diff.hi"></a>`pw.format_lang_diff.hi` | 0.017801225388359 | lookup | `llm_compare.csv` [comparison=listwise advantage over Qwen3-Reranker-4B (pointwise), pt minus en, language=pt-en] `hi` |
+| <a id="pw.format_lang_diff.lo"></a>`pw.format_lang_diff.lo` | -0.000375562043317 | lookup | `llm_compare.csv` [comparison=listwise advantage over Qwen3-Reranker-4B (pointwise), pt minus en, language=pt-en] `lo` |
+| <a id="pw.format_lang_diff.mean"></a>`pw.format_lang_diff.mean` | 0.0085377884048803 | lookup | `llm_compare.csv` [comparison=listwise advantage over Qwen3-Reranker-4B (pointwise), pt minus en, language=pt-en] `mean` |
+| <a id="pw.gap_change.hi"></a>`pw.gap_change.hi` | 0.0192381524263149 | lookup | `llm_compare.csv` [comparison=gap change, Qwen3-Reranker-4B (pointwise) minus first stage, language=en-pt] `hi` |
+| <a id="pw.gap_change.lo"></a>`pw.gap_change.lo` | -0.0009061436007772 | lookup | `llm_compare.csv` [comparison=gap change, Qwen3-Reranker-4B (pointwise) minus first stage, language=en-pt] `lo` |
+| <a id="pw.gap_change.mean"></a>`pw.gap_change.mean` | 0.0091746634843874 | lookup | `llm_compare.csv` [comparison=gap change, Qwen3-Reranker-4B (pointwise) minus first stage, language=en-pt] `mean` |
+| <a id="pw.listwise_upper.en"></a>`pw.listwise_upper.en` | 0.0079103495817834 | formula | -{pw.minus_listwise.en.lo} |
+| <a id="pw.listwise_upper.en.share"></a>`pw.listwise_upper.en.share` | 0.22254768469666394 | formula | {pw.listwise_upper.en} / ({qwen.test.en.ndcg10} - {hybrid.test.en.ndcg10}) |
+| <a id="pw.minus_deepseek.en.hi"></a>`pw.minus_deepseek.en.hi` | -0.0249414820685139 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus DeepSeek (API), language=en] `hi` |
+| <a id="pw.minus_deepseek.en.lo"></a>`pw.minus_deepseek.en.lo` | -0.0398663494581799 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus DeepSeek (API), language=en] `lo` |
+| <a id="pw.minus_deepseek.en.mean"></a>`pw.minus_deepseek.en.mean` | -0.032031708584878 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus DeepSeek (API), language=en] `mean` |
+| <a id="pw.minus_deepseek.pt.hi"></a>`pw.minus_deepseek.pt.hi` | -0.0355183734144341 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus DeepSeek (API), language=pt] `hi` |
+| <a id="pw.minus_deepseek.pt.lo"></a>`pw.minus_deepseek.pt.lo` | -0.0501584644127431 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus DeepSeek (API), language=pt] `lo` |
+| <a id="pw.minus_deepseek.pt.mean"></a>`pw.minus_deepseek.pt.mean` | -0.042581217761392 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus DeepSeek (API), language=pt] `mean` |
+| <a id="pw.minus_first.en.hi"></a>`pw.minus_first.en.hi` | 0.0440384388436872 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus first stage, language=en] `hi` |
+| <a id="pw.minus_first.en.lo"></a>`pw.minus_first.en.lo` | 0.0254423434061667 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus first stage, language=en] `lo` |
+| <a id="pw.minus_first.en.mean"></a>`pw.minus_first.en.mean` | 0.0345672166646144 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus first stage, language=en] `mean` |
+| <a id="pw.minus_first.pt.hi"></a>`pw.minus_first.pt.hi` | 0.0348255095156879 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus first stage, language=pt] `hi` |
+| <a id="pw.minus_first.pt.lo"></a>`pw.minus_first.pt.lo` | 0.0168019141657884 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus first stage, language=pt] `lo` |
+| <a id="pw.minus_first.pt.mean"></a>`pw.minus_first.pt.mean` | 0.025392553180227 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus first stage, language=pt] `mean` |
+| <a id="pw.minus_listwise.en.hi"></a>`pw.minus_listwise.en.hi` | 0.0058803520412077 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus Qwen3-4B (local), language=en] `hi` |
+| <a id="pw.minus_listwise.en.lo"></a>`pw.minus_listwise.en.lo` | -0.0079103495817834 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus Qwen3-4B (local), language=en] `lo` |
+| <a id="pw.minus_listwise.en.mean"></a>`pw.minus_listwise.en.mean` | -0.0009772986268627 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus Qwen3-4B (local), language=en] `mean` |
+| <a id="pw.minus_listwise.pt.hi"></a>`pw.minus_listwise.pt.hi` | -0.0018244166712585 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus Qwen3-4B (local), language=pt] `hi` |
+| <a id="pw.minus_listwise.pt.lo"></a>`pw.minus_listwise.pt.lo` | -0.01718979179547 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus Qwen3-4B (local), language=pt] `lo` |
+| <a id="pw.minus_listwise.pt.mean"></a>`pw.minus_listwise.pt.mean` | -0.009515087031743 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus Qwen3-4B (local), language=pt] `mean` |
+| <a id="pw.minus_small.en.hi"></a>`pw.minus_small.en.hi` | 0.0480117373792411 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus Qwen3-Reranker-0.6B (pointwise), language=en] `hi` |
+| <a id="pw.minus_small.en.lo"></a>`pw.minus_small.en.lo` | 0.030783851162359 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus Qwen3-Reranker-0.6B (pointwise), language=en] `lo` |
+| <a id="pw.minus_small.en.mean"></a>`pw.minus_small.en.mean` | 0.0393362766483375 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus Qwen3-Reranker-0.6B (pointwise), language=en] `mean` |
+| <a id="pw.minus_small.pt.hi"></a>`pw.minus_small.pt.hi` | 0.0432375112254476 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus Qwen3-Reranker-0.6B (pointwise), language=pt] `hi` |
+| <a id="pw.minus_small.pt.lo"></a>`pw.minus_small.pt.lo` | 0.0259791135794878 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus Qwen3-Reranker-0.6B (pointwise), language=pt] `lo` |
+| <a id="pw.minus_small.pt.mean"></a>`pw.minus_small.pt.mean` | 0.0341962690269814 | lookup | `llm_compare.csv` [comparison=Qwen3-Reranker-4B (pointwise) minus Qwen3-Reranker-0.6B (pointwise), language=pt] `mean` |
+| <a id="pw.share_of_listwise_gain.en"></a>`pw.share_of_listwise_gain.en` | 0.9725049386987398 | formula | ({ce.qwen4b.en.ndcg10} - {hybrid.test.en.ndcg10}) / ({qwen.test.en.ndcg10} - {hybrid.test.en.ndcg10}) |
+| <a id="pw.share_of_listwise_gain.pt"></a>`pw.share_of_listwise_gain.pt` | 0.727421075330087 | formula | ({ce.qwen4b.pt.ndcg10} - {hybrid.test.pt.ndcg10}) / ({qwen.test.pt.ndcg10} - {hybrid.test.pt.ndcg10}) |
 | <a id="quartile.e5-base.pt.q1.delta"></a>`quartile.e5-base.pt.q1.delta` | 0.1058240046750416 | lookup | `dense_vs_lexical_paired.csv` [model=e5-base, language=pt, bm25_quartile=Q1 worst] `delta` |
 | <a id="quartile.embeddinggemma.en.q1.bm25_mean"></a>`quartile.embeddinggemma.en.q1.bm25_mean` | 0.0617879703944077 | lookup | `dense_vs_lexical_paired.csv` [model=embeddinggemma, language=en, bm25_quartile=Q1 worst] `bm25_mean` |
 | <a id="quartile.embeddinggemma.en.q1.delta"></a>`quartile.embeddinggemma.en.q1.delta` | 0.1213238731245688 | lookup | `dense_vs_lexical_paired.csv` [model=embeddinggemma, language=en, bm25_quartile=Q1 worst] `delta` |

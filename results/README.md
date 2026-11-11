@@ -1224,7 +1224,8 @@ adding [20](rerank.md "from rerank.md, rerank_qwen3-0.6b.md") to [142](rerank.md
 
 Meanwhile the oracle says perfect ordering of the same candidates would more
 than double the score. The ordering problem is large, real, and untouched by
-off-the-shelf cross-encoders.
+these two cross-encoders. A larger one does move it: experiment 15's pointwise
+control, `Qwen3-Reranker-4B`, beats the first stage in both languages.
 
 ---
 
@@ -1234,8 +1235,8 @@ The cross-encoders in experiment 14 score each candidate on its own, and did no
 better than the first stage's ordering. A listwise reranker gets the occupation
 description and the whole shortlist in one prompt and returns the numbers of the
 10 best candidates, so it can compare candidates against each other, which a
-pointwise model cannot. Whether that is what makes the difference is a separate
-question, taken up after the results.
+pointwise model cannot. Whether that is what makes the difference is tested by
+a pointwise control after the results.
 
 The model answers with candidate numbers, never skill names, so a malformed
 response is an out-of-range number, a repeat or an omission, and each is
@@ -1271,16 +1272,62 @@ This is the first method in the project to improve on the tuned hybrid. Both
 models were given the same 20 candidates the cross-encoders saw, so the
 difference is in what the model does with them.
 
-**What this does not establish** is that listwise scoring is the reason. The
-cross-encoders are much smaller models, trained as rerankers; the listwise
-models are a 4B instruction-tuned model and a far larger API model, from
-different families and trained for different tasks. Model size, family and
-training are confounded with listwise against pointwise, so the gain cannot yet
-be attributed to comparing candidates with each other. The control is
-`Qwen3-Reranker-4B`: built on the same Qwen3 4B base as the local listwise
-model, scoring one pair at a time, through the scoring path experiment 14
-already uses for its smaller sibling. Until it is run, the listwise explanation is
-a hypothesis.
+### Pointwise control: is it the listwise format?
+
+The cross-encoders in experiment 14 are much smaller models, trained as
+rerankers; the listwise models are a 4B instruction-tuned model and a far larger
+API model. That confounds listwise against pointwise with model size and
+training. To separate them, `Qwen3-Reranker-4B`, built on the same Qwen3 4B base
+as the local listwise model, scored the same 20 candidates one at a time,
+through experiment 14's scoring path but with this experiment's candidate text,
+depths and dev sample ([`rerank_qwen3-4b.md`](rerank_qwen3-4b.md)). The decision rules were written
+into `experiments/14_rerank.py` before the run. Dev selected depth 20 in both
+languages, as it did for the listwise models.
+
+| pointwise 4B against | pt (95% CI) | en (95% CI) |
+|---|---|---|
+| first stage | ▲ [+0.0254](llm_compare.md "from llm_compare.md") [[+0.0168](llm_compare.md "from llm_compare.md"), [+0.0348](llm_compare.md "from llm_compare.md")] | ▲ [+0.0346](llm_compare.md "from llm_compare.md") [[+0.0254](llm_compare.md "from llm_compare.md"), [+0.0440](llm_compare.md "from llm_compare.md")] |
+| listwise Qwen3-4B | ▼ [−0.0095](llm_compare.md "from llm_compare.md") [[−0.0172](llm_compare.md "from llm_compare.md"), [−0.0018](llm_compare.md "from llm_compare.md")] | [−0.0010](llm_compare.md "from llm_compare.md") [[−0.0079](llm_compare.md "from llm_compare.md"), [+0.0059](llm_compare.md "from llm_compare.md")] |
+| pointwise, same family, smaller | ▲ [+0.0342](llm_compare.md "from llm_compare.md") [[+0.0260](llm_compare.md "from llm_compare.md"), [+0.0432](llm_compare.md "from llm_compare.md")] | ▲ [+0.0393](llm_compare.md "from llm_compare.md") [[+0.0308](llm_compare.md "from llm_compare.md"), [+0.0480](llm_compare.md "from llm_compare.md")] |
+| DeepSeek | ▼ [−0.0426](llm_compare.md "from llm_compare.md") [[−0.0502](llm_compare.md "from llm_compare.md"), [−0.0355](llm_compare.md "from llm_compare.md")] | ▼ [−0.0320](llm_compare.md "from llm_compare.md") [[−0.0399](llm_compare.md "from llm_compare.md"), [−0.0249](llm_compare.md "from llm_compare.md")] |
+
+Differences in nDCG@10, paired on the same [608](split_profile.md "from split_profile.md") queries per language. The
+pointwise model scores [0.3693](rerank.md "from rerank.md") in Portuguese and [0.4140](rerank.md "from rerank.md") in English.
+
+**Per language, the format adds a measurable amount in Portuguese and shows no
+measurable advantage in English.** In English, pointwise 4B is not distinguishable from
+listwise Qwen3-4B and keeps [97%](rerank.md "from rerank.md, llm_rerank_qwen3-4b-local.md") of its gain over the first stage, so there is no
+measurable advantage for the listwise format in English. The interval still
+allows listwise to be up to about [0.008](llm_compare.md "from llm_compare.md") better there, [22%](llm_compare.md "from llm_compare.md, llm_rerank_qwen3-4b-local.md, rerank.md") of its gain. In
+Portuguese pointwise 4B is distinguishably below listwise and keeps [73%](rerank.md "from rerank.md, llm_rerank_qwen3-4b-local.md") of the
+gain.
+
+Under the rules fixed before the run, that is the "listwise format not needed"
+outcome in English and "partial" in Portuguese. Those are per-language
+verdicts, not a test of a difference between languages. Tested directly, per
+occupation, the listwise advantage in Portuguese minus that in English is
+[+0.0085](llm_compare.md "from llm_compare.md") [[−0.0004](llm_compare.md "from llm_compare.md"), [+0.0178](llm_compare.md "from llm_compare.md")], which includes zero. So the listwise format adds a
+measurable amount in Portuguese; whether it helps Portuguese more than English
+is not established.
+
+**Size within one family and format is the larger effect.** Pointwise 4B beats
+its smaller sibling from experiment 14 by about as much as listwise reranking gains over the first
+stage. The experiment 14 diagnostics agree: gold-vs-rest AUC of [0.761](rerank.md "from rerank.md") and
+[0.779](rerank.md "from rerank.md"), against [0.668](rerank.md "from rerank.md, rerank_qwen3-0.6b.md") to [0.717](rerank.md "from rerank.md, rerank_qwen3-0.6b.md") for the two smaller cross-encoders, and it recovers
+[120%](rerank.md "from rerank.md") and [125%](rerank.md "from rerank.md") of the first stage's ordering quality where they reproduced it. So
+experiment 14's null result was mostly a matter of model size, not of scoring
+one pair at a time, and the query-shape hypothesis offered there does not stop
+a larger model.
+
+Two things this does not settle. The reranker and the instruct model share a
+base but were fine-tuned differently, so training is still confounded with
+format. And DeepSeek stays ahead of both 4B models, but it differs from them in
+size, family and training at once, so it cannot inform the format question.
+The pointwise model does not measurably change the language gap
+either ([+0.0092](llm_compare.md "from llm_compare.md") [[−0.0009](llm_compare.md "from llm_compare.md"), [+0.0192](llm_compare.md "from llm_compare.md")] against the first stage).
+
+Cost is comparable to listwise reranking on the same GPU: [1,081](rerank.md "from rerank.md") and [850](rerank.md "from rerank.md") ms
+per query at batch size 2, where the listwise model took [1.2](llm_rerank_qwen3-4b-local.md "from llm_rerank_qwen3-4b-local.md") to [1.6](llm_rerank_qwen3-4b-local.md "from llm_rerank_qwen3-4b-local.md") s.
 
 ### Headroom captured
 

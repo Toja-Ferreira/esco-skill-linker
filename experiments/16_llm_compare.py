@@ -46,6 +46,10 @@ METRIC = "ndcg@10"
 DENSE_LABEL = "EmbeddingGemma"
 # Perfect ordering of the first stage's shortlist at these depths (experiment 14).
 ORACLE_DEPTHS = (10, 20, 50, 100)
+# The pointwise control (experiment 14 at experiment 15's settings), and the
+# same family at 0.6B, which isolates size within one format and training.
+POINTWISE = {"qwen3-4b": "Qwen3-Reranker-4B (pointwise)",
+             "qwen3-0.6b": "Qwen3-Reranker-0.6B (pointwise)"}
 MODELS = {"qwen3-4b-local": "Qwen3-4B (local)", "deepseek": "DeepSeek (API)"}
 N_BOOT = 2000
 SEED = 42
@@ -127,6 +131,10 @@ def main() -> None:
         systems[label] = model_scores(key)
     for d in ORACLE_DEPTHS:
         systems[f"oracle@{d}"] = per_query("rerank_oracle_per_query.csv", depth=d)
+    has_pointwise = (RESULTS / "rerank_per_query_qwen3-4b.csv").exists()
+    if has_pointwise:
+        for tag, label in POINTWISE.items():
+            systems[label] = per_query(f"rerank_per_query_{tag}.csv")
 
     rows = []
 
@@ -138,6 +146,28 @@ def main() -> None:
                       for q in shared])
         rows.append({"comparison": f"{a} minus {b}", "language": lang,
                      **paired(d)})
+
+    # 1b. The pointwise control against everything it is meant to separate.
+    if has_pointwise:
+        pw, pw_small = POINTWISE["qwen3-4b"], POINTWISE["qwen3-0.6b"]
+        for other in ("first stage", b, a, pw_small):
+            for lang in exp15.LANGUAGES:
+                shared = sorted(set(systems[pw][lang]) & set(systems[other][lang]))
+                d = np.array([systems[pw][lang][q] - systems[other][lang][q]
+                              for q in shared])
+                rows.append({"comparison": f"{pw} minus {other}", "language": lang,
+                             **paired(d)})
+
+        # Does the listwise format help one language more? Per occupation,
+        # (listwise minus pointwise) in Portuguese minus the same in English.
+        # The per-language intervals above are not a test of this.
+        adv = {lang: {q: systems[b][lang][q] - systems[pw][lang][q]
+                      for q in set(systems[b][lang]) & set(systems[pw][lang])}
+               for lang in exp15.LANGUAGES}
+        shared = sorted(set(adv["pt"]) & set(adv["en"]))
+        d = np.array([adv["pt"][q] - adv["en"][q] for q in shared])
+        rows.append({"comparison": f"listwise advantage over {pw}, pt minus en",
+                     "language": "pt-en", **paired(d)})
 
     # 2. Language gap within each system: English minus Portuguese, per
     #    occupation.
@@ -153,6 +183,8 @@ def main() -> None:
     # 3. Change in the gap between systems: a difference of differences.
     pairs = [("BM25", DENSE_LABEL), (DENSE_LABEL, "first stage"), ("BM25", "first stage"),
              ("first stage", b), ("first stage", a), (b, a)]
+    if has_pointwise:
+        pairs.append(("first stage", POINTWISE["qwen3-4b"]))
     for lo_sys, hi_sys in pairs:
         shared = sorted(set(gaps[lo_sys]) & set(gaps[hi_sys]))
         d = np.array([gaps[hi_sys][q] - gaps[lo_sys][q] for q in shared])
@@ -212,6 +244,25 @@ def render(out: pd.DataFrame, cost: pd.DataFrame) -> str:
                     & ~out["comparison"].str.startswith("gap")].iterrows():
         w(f"| {r['language']} | {fmt(r)} | {r['won']:.0%} | {r['lost']:.0%} |")
     w("")
+
+    pw_rows = out[out["comparison"].str.startswith(POINTWISE["qwen3-4b"] + " minus")]
+    if len(pw_rows):
+        w("## Pointwise control\n")
+        w("Qwen3-Reranker-4B scores one candidate at a time, on the same Qwen3 "
+          "4B base as the listwise model, with experiment 15's depths, "
+          "candidate text and dev sample. Decision rules are in "
+          "`experiments/14_rerank.py`.\n")
+        w("| comparison | language | difference, nDCG@10 (95% CI) | pointwise better |")
+        w("|---|---|---|---:|")
+        for _, r in pw_rows.iterrows():
+            w(f"| {r['comparison']} | {r['language']} | {fmt(r)} | {r['won']:.0%} |")
+        w("")
+        dd = out[out["comparison"].str.startswith("listwise advantage over")]
+        for _, r in dd.iterrows():
+            w("Whether the listwise format helps one language more: per occupation, "
+              "(listwise minus pointwise) in Portuguese minus the same in English, "
+              f"{fmt(r)}. The per-language comparisons above are not a test of "
+              "a difference between languages; this is.\n")
 
     w("## Language gap\n")
     w("English minus Portuguese for the same occupation. Relative is the mean "

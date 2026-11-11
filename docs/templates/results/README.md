@@ -1224,7 +1224,8 @@ adding {{ce.ms.min:.0f}} to {{ce.ms.max:.0f}} ms per query.
 
 Meanwhile the oracle says perfect ordering of the same candidates would more
 than double the score. The ordering problem is large, real, and untouched by
-off-the-shelf cross-encoders.
+these two cross-encoders. A larger one does move it: experiment 15's pointwise
+control, `Qwen3-Reranker-4B`, beats the first stage in both languages.
 
 ---
 
@@ -1234,8 +1235,8 @@ The cross-encoders in experiment 14 score each candidate on its own, and did no
 better than the first stage's ordering. A listwise reranker gets the occupation
 description and the whole shortlist in one prompt and returns the numbers of the
 10 best candidates, so it can compare candidates against each other, which a
-pointwise model cannot. Whether that is what makes the difference is a separate
-question, taken up after the results.
+pointwise model cannot. Whether that is what makes the difference is tested by
+a pointwise control after the results.
 
 The model answers with candidate numbers, never skill names, so a malformed
 response is an out-of-range number, a repeat or an omission, and each is
@@ -1271,16 +1272,62 @@ This is the first method in the project to improve on the tuned hybrid. Both
 models were given the same 20 candidates the cross-encoders saw, so the
 difference is in what the model does with them.
 
-**What this does not establish** is that listwise scoring is the reason. The
-cross-encoders are much smaller models, trained as rerankers; the listwise
-models are a 4B instruction-tuned model and a far larger API model, from
-different families and trained for different tasks. Model size, family and
-training are confounded with listwise against pointwise, so the gain cannot yet
-be attributed to comparing candidates with each other. The control is
-`Qwen3-Reranker-4B`: built on the same Qwen3 4B base as the local listwise
-model, scoring one pair at a time, through the scoring path experiment 14
-already uses for its smaller sibling. Until it is run, the listwise explanation is
-a hypothesis.
+### Pointwise control: is it the listwise format?
+
+The cross-encoders in experiment 14 are much smaller models, trained as
+rerankers; the listwise models are a 4B instruction-tuned model and a far larger
+API model. That confounds listwise against pointwise with model size and
+training. To separate them, `Qwen3-Reranker-4B`, built on the same Qwen3 4B base
+as the local listwise model, scored the same 20 candidates one at a time,
+through experiment 14's scoring path but with this experiment's candidate text,
+depths and dev sample ([`rerank_qwen3-4b.md`](rerank_qwen3-4b.md)). The decision rules were written
+into `experiments/14_rerank.py` before the run. Dev selected depth 20 in both
+languages, as it did for the listwise models.
+
+| pointwise 4B against | pt (95% CI) | en (95% CI) |
+|---|---|---|
+| first stage | ▲ {{pw.minus_first.pt.mean:+.4f}} [{{pw.minus_first.pt.lo:+.4f}}, {{pw.minus_first.pt.hi:+.4f}}] | ▲ {{pw.minus_first.en.mean:+.4f}} [{{pw.minus_first.en.lo:+.4f}}, {{pw.minus_first.en.hi:+.4f}}] |
+| listwise Qwen3-4B | ▼ {{pw.minus_listwise.pt.mean:+.4f}} [{{pw.minus_listwise.pt.lo:+.4f}}, {{pw.minus_listwise.pt.hi:+.4f}}] | {{pw.minus_listwise.en.mean:+.4f}} [{{pw.minus_listwise.en.lo:+.4f}}, {{pw.minus_listwise.en.hi:+.4f}}] |
+| pointwise, same family, smaller | ▲ {{pw.minus_small.pt.mean:+.4f}} [{{pw.minus_small.pt.lo:+.4f}}, {{pw.minus_small.pt.hi:+.4f}}] | ▲ {{pw.minus_small.en.mean:+.4f}} [{{pw.minus_small.en.lo:+.4f}}, {{pw.minus_small.en.hi:+.4f}}] |
+| DeepSeek | ▼ {{pw.minus_deepseek.pt.mean:+.4f}} [{{pw.minus_deepseek.pt.lo:+.4f}}, {{pw.minus_deepseek.pt.hi:+.4f}}] | ▼ {{pw.minus_deepseek.en.mean:+.4f}} [{{pw.minus_deepseek.en.lo:+.4f}}, {{pw.minus_deepseek.en.hi:+.4f}}] |
+
+Differences in nDCG@10, paired on the same {{split.test.queries:.0f}} queries per language. The
+pointwise model scores {{ce.qwen4b.pt.ndcg10:.4f}} in Portuguese and {{ce.qwen4b.en.ndcg10:.4f}} in English.
+
+**Per language, the format adds a measurable amount in Portuguese and shows no
+measurable advantage in English.** In English, pointwise 4B is not distinguishable from
+listwise Qwen3-4B and keeps {{pw.share_of_listwise_gain.en:.0%}} of its gain over the first stage, so there is no
+measurable advantage for the listwise format in English. The interval still
+allows listwise to be up to about {{pw.listwise_upper.en:.3f}} better there, {{pw.listwise_upper.en.share:.0%}} of its gain. In
+Portuguese pointwise 4B is distinguishably below listwise and keeps {{pw.share_of_listwise_gain.pt:.0%}} of the
+gain.
+
+Under the rules fixed before the run, that is the "listwise format not needed"
+outcome in English and "partial" in Portuguese. Those are per-language
+verdicts, not a test of a difference between languages. Tested directly, per
+occupation, the listwise advantage in Portuguese minus that in English is
+{{pw.format_lang_diff.mean:+.4f}} [{{pw.format_lang_diff.lo:+.4f}}, {{pw.format_lang_diff.hi:+.4f}}], which includes zero. So the listwise format adds a
+measurable amount in Portuguese; whether it helps Portuguese more than English
+is not established.
+
+**Size within one family and format is the larger effect.** Pointwise 4B beats
+its smaller sibling from experiment 14 by about as much as listwise reranking gains over the first
+stage. The experiment 14 diagnostics agree: gold-vs-rest AUC of {{ce.qwen4b.pt.auc:.3f}} and
+{{ce.qwen4b.en.auc:.3f}}, against {{ce.auc.min:.3f}} to {{ce.auc.max:.3f}} for the two smaller cross-encoders, and it recovers
+{{ce.qwen4b.pt.recovered:.0%}} and {{ce.qwen4b.en.recovered:.0%}} of the first stage's ordering quality where they reproduced it. So
+experiment 14's null result was mostly a matter of model size, not of scoring
+one pair at a time, and the query-shape hypothesis offered there does not stop
+a larger model.
+
+Two things this does not settle. The reranker and the instruct model share a
+base but were fine-tuned differently, so training is still confounded with
+format. And DeepSeek stays ahead of both 4B models, but it differs from them in
+size, family and training at once, so it cannot inform the format question.
+The pointwise model does not measurably change the language gap
+either ({{pw.gap_change.mean:+.4f}} [{{pw.gap_change.lo:+.4f}}, {{pw.gap_change.hi:+.4f}}] against the first stage).
+
+Cost is comparable to listwise reranking on the same GPU: {{ce.qwen4b.pt.ms_per_query:,.0f}} and {{ce.qwen4b.en.ms_per_query:,.0f}} ms
+per query at batch size 2, where the listwise model took {{qwen.s_per_query.min:.1f}} to {{qwen.s_per_query.max:.1f}} s.
 
 ### Headroom captured
 

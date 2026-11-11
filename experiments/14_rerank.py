@@ -29,6 +29,36 @@ dev queries is 243,100 forward passes per language. Depth is selected on a
 random subsample, stated in the output, then the choice is applied once to the
 full test split.
 
+**Pointwise control for experiment 15.** Listwise reranking with Qwen3-4B beat
+the first stage where both cross-encoders here did not, but the listwise models
+are larger and from different families, so the format is confounded with model
+size and training. `Qwen/Qwen3-Reranker-4B` is built on the same Qwen3 4B base
+as the listwise model and scores one candidate at a time. It runs with
+experiment 15's settings so that only the format differs from the listwise run
+on the same base: depths 10 and 20 (`--depths 10 20`), candidate text cut to 40
+words (`--truncate-words 40`), the same first stage, query text and 200-query
+dev sample. Experiment 16 compares it, paired on the same 608 test queries per
+language, against the first stage, listwise Qwen3-4B, DeepSeek and pointwise
+Qwen3-Reranker-0.6B.
+
+Decision rules, fixed before the run. "Distinguishable" means a 95% paired
+bootstrap interval that excludes zero, read per language:
+
+- **The listwise format is not needed at this size**: pointwise 4B beats the
+  first stage and is not distinguishable from listwise Qwen3-4B. This does not
+  show model size explains the gain: the reranker and the instruct model share
+  a base but were trained differently. The size effect proper is pointwise 4B
+  against pointwise 0.6B, same family, training approach and format.
+- **Comparing candidates in one prompt is what matters**: pointwise 4B is not
+  distinguishable from the first stage, or is below it, and is below listwise
+  Qwen3-4B.
+- **Partial**: pointwise 4B is above the first stage and below listwise
+  Qwen3-4B, both distinguishably. Format and size each account for part, and
+  the share is read from where it lands between the two.
+- **The listwise format costs something**: pointwise 4B is above listwise
+  Qwen3-4B.
+- **Mixed**: the two languages fall under different rules, reported as such.
+
 Writes:
     results/rerank_dev.csv
     results/rerank_test.csv
@@ -42,6 +72,8 @@ Usage:
     python -m experiments.14_rerank --dev-sample 300
     python -m experiments.14_rerank --render-only
     python -m experiments.14_rerank --oracle-only   oracle per query, no model
+    python -m experiments.14_rerank --model qwen3-4b \
+        --depths 10 20 --truncate-words 40 --batch-size 2   pointwise control
 """
 
 from __future__ import annotations
@@ -154,6 +186,13 @@ def skill_text(texts, labels, lang: str) -> dict[str, str]:
                                t["description"])}
 
 
+def truncate(text: str, words: int) -> str:
+    """Experiment 15's candidate cut, so a pointwise model can see exactly the
+    text the listwise one did."""
+    parts = text.split()
+    return " ".join(parts[:words]) + ("..." if len(parts) > words else "")
+
+
 def oracle_rerank(fused, query_uris, gold, depth):
     """Upper bound: sort the shortlist by true relevance.
 
@@ -232,6 +271,12 @@ def main() -> None:
     ap.add_argument("--no-fp16", action="store_true")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--render-only", action="store_true")
+    ap.add_argument("--depths", type=int, nargs="+", default=list(DEPTHS),
+                    help="shortlist depths to sweep on dev; scored once at the "
+                         "deepest, so the deepest sets the cost")
+    ap.add_argument("--truncate-words", type=int, default=None,
+                    help="cut candidate text to this many words, as experiment "
+                         "15 does for its prompts")
     ap.add_argument("--oracle-only", action="store_true",
                     help="write per-query oracle scores from data/runs/ and "
                          "stop; loads no model")
@@ -265,7 +310,8 @@ def main() -> None:
                                                    len(dev_all)),
                                  replace=False).tolist())
     test_uris = splits[splits["split"] == "test"]["conceptUri"].tolist()
-    max_depth = max(DEPTHS)
+    depths = tuple(sorted(args.depths))
+    max_depth = max(depths)
 
     spec = RERANKERS[args.model]
     device = resolve_device(args.device, allow_cpu=args.allow_cpu)
@@ -276,7 +322,9 @@ def main() -> None:
     print(f"reranker: {spec.hf_name} ({spec.licence})")
     print(f"first stage: hybrid weighted score fusion, bm25 + {DENSE}")
     print(f"dev sample {len(dev_uris)} of {len(dev_all)} | test {len(test_uris)}")
-    print(f"depths {DEPTHS}, scored once at {max_depth}")
+    print(f"depths {depths}, scored once at {max_depth}"
+          + (f", candidates cut to {args.truncate_words} words"
+             if args.truncate_words else ""))
     print(f"device: {device}  |  scoring: {spec.kind}  |  pairs: "
           f"{len(dev_uris) * max_depth * 2:,} dev, "
           f"up to {len(test_uris) * max_depth * 2:,} test")
@@ -293,6 +341,8 @@ def main() -> None:
                     & (texts["conceptKind"] == "occupation")]
         occ_desc = dict(zip(occ["conceptUri"], occ["description"]))
         docs = skill_text(texts, labels, lang)
+        if args.truncate_words:
+            docs = {u: truncate(t, args.truncate_words) for u, t in docs.items()}
 
         # First-stage ceiling on the full test split, independent of reranking.
         t0 = time.perf_counter()
@@ -314,7 +364,7 @@ def main() -> None:
               f"{len(dev_uris) * max_depth:,} dev pairs", flush=True)
         dev_out, n_pairs, secs, _ = run_split(
             reranker, fused_dev, dev_uris, occ_desc, docs, gold,
-            max_depth, DEPTHS)
+            max_depth, depths)
         print(f"  {lang} dev: {n_pairs:,} pairs in {secs:.0f}s "
               f"({n_pairs/secs:.0f} pairs/s) on {reranker.actual_device}")
 
@@ -328,7 +378,7 @@ def main() -> None:
                          SELECT_ON: base_agg[SELECT_ON], "queries": len(base_dev)})
         print(f"    depth   0 (no rerank)  {SELECT_ON} {base_agg[SELECT_ON]:.4f}")
 
-        for depth in DEPTHS:
+        for depth in depths:
             agg = aggregate(list(dev_out[depth].values()))
             dev_rows.append({"language": lang, "depth": depth,
                              SELECT_ON: agg[SELECT_ON],

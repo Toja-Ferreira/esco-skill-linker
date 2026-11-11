@@ -626,7 +626,13 @@ constant("fusion.run_depth", 200, "`RUN_DEPTH` in `experiments/13_fusion.py`")
 RQ = "rerank_test_qwen3-0.6b.csv"
 RERANKERS = {"bge": (RT, "rerank_diagnostics.csv", "rerank_dev.csv"),
              "qwen06": (RQ, "rerank_diagnostics_qwen3-0.6b.csv", "rerank_dev_qwen3-0.6b.csv")}
-for key, (test, diag, dev) in RERANKERS.items():
+# The pointwise control for experiment 15, run through experiment 14 at
+# experiment 15's depths (10, 20). Kept out of RERANKERS so experiment 14's
+# ranges over its own two checkpoints are unchanged.
+POINTWISE_4B = {"qwen4b": ("rerank_test_qwen3-4b.csv", "rerank_diagnostics_qwen3-4b.csv",
+                           "rerank_dev_qwen3-4b.csv")}
+DEV_DEPTHS = {"bge": (0, 10, 20, 50, 100), "qwen06": (0, 10, 20, 50, 100), "qwen4b": (0, 10, 20)}
+for key, (test, diag, dev) in {**RERANKERS, **POINTWISE_4B}.items():
     for lang in LANGS:
         k = f"ce.{key}.{lang}"
         for col in ("ndcg@10", "mrr", "mean_delta", "delta_lo", "delta_hi", "won", "depth", "pairs", "ms_per_query"):
@@ -636,10 +642,10 @@ for key, (test, diag, dev) in RERANKERS.items():
         formula(f"{k}.gain", f"{{{k}.ndcg10}} / {{hybrid.test.{lang}.ndcg10}} - 1")
         formula(f"{k}.recovered", f"({{{k}.ndcg10}} - {{{k}.random_ndcg}}) / ({{hybrid.test.{lang}.ndcg10}} - {{{k}.random_ndcg}})")
         formula(f"{k}.mrr_change", f"{{{k}.mrr}} - {{hybrid.test.{lang}.mrr}}")
-        for d in (0, 10, 20, 50, 100):
+        for d in DEV_DEPTHS[key]:
             lookup(f"ce.{key}.dev.{lang}.d{d}", dev, "ndcg@10", language=lang, depth=d)
 # Captured headroom is measured against the oracle at each run's own depth.
-for key in RERANKERS:
+for key in {**RERANKERS, **POINTWISE_4B}:
     for lang in LANGS:
         k = f"ce.{key}.{lang}"
         def cap(k=k, lang=lang):
@@ -648,7 +654,7 @@ for key in RERANKERS:
                 value(f"oracle{d}.test.{lang}.ndcg10") - value(f"hybrid.test.{lang}.ndcg10"))
         computed(f"{k}.captured", f"({k}.ndcg10 - hybrid.test.{lang}.ndcg10) / "
                  f"(oracle at depth {k}.depth - hybrid.test.{lang}.ndcg10)", cap,
-                 files=(RERANKERS[key][0], RT))
+                 files=({**RERANKERS, **POINTWISE_4B}[key][0], RT))
 RECOVERED = ", ".join(f"{{ce.{r}.{l}.recovered}}" for r in RERANKERS for l in LANGS)
 formula("ce.recovered.min", f"min({RECOVERED})")
 formula("ce.recovered.max", f"max({RECOVERED})")
@@ -720,6 +726,31 @@ for d in (10, 20, 50, 100):
         lookup(f"gap.removed.oracle{d}.{col}", LC, col,
                comparison=f"gap removed, oracle@{d}", language="en-pt")
 formula("gap.change.fusion_keeps", "{gap.change.hybrid_vs_bm25.mean} / {gap.change.dense.mean}")
+# The pointwise control against the systems it separates (experiment 16).
+PW = "Qwen3-Reranker-4B (pointwise)"
+for key, other in (("first", "first stage"), ("listwise", "Qwen3-4B (local)"),
+                   ("deepseek", "DeepSeek (API)"), ("small", "Qwen3-Reranker-0.6B (pointwise)")):
+    for lang in LANGS:
+        for col in ("mean", "lo", "hi"):
+            lookup(f"pw.minus_{key}.{lang}.{col}", LC, col,
+                   comparison=f"{PW} minus {other}", language=lang)
+for col in ("mean", "lo", "hi"):
+    lookup(f"pw.gap_change.{col}", LC, col, comparison=f"gap change, {PW} minus first stage",
+           language="en-pt")
+for col in ("mean", "lo", "hi"):
+    lookup(f"pw.format_lang_diff.{col}", LC, col,
+           comparison=f"listwise advantage over {PW}, pt minus en", language="pt-en")
+# The most the English interval allows listwise to lead by, and that as a share
+# of listwise Qwen3-4B's gain over the first stage.
+formula("pw.listwise_upper.en", "-{pw.minus_listwise.en.lo}")
+formula("pw.listwise_upper.en.share",
+        "{pw.listwise_upper.en} / ({qwen.test.en.ndcg10} - {hybrid.test.en.ndcg10})")
+formula("ce.auc.min", "min(" + ", ".join(f"{{ce.{r}.{l}.auc}}" for r in RERANKERS for l in LANGS) + ")")
+formula("ce.auc.max", "max(" + ", ".join(f"{{ce.{r}.{l}.auc}}" for r in RERANKERS for l in LANGS) + ")")
+for lang in LANGS:
+    formula(f"pw.share_of_listwise_gain.{lang}",
+            f"({{ce.qwen4b.{lang}.ndcg10}} - {{hybrid.test.{lang}.ndcg10}}) / "
+            f"({{qwen.test.{lang}.ndcg10}} - {{hybrid.test.{lang}.ndcg10}})")
 for lang in LANGS:
     formula(f"deepseek.over_qwen_gain.{lang}",
             f"({{deepseek.test.{lang}.ndcg10}} - {{hybrid.test.{lang}.ndcg10}}) / ({{qwen.test.{lang}.ndcg10}} - {{hybrid.test.{lang}.ndcg10}})")

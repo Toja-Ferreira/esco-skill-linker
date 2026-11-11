@@ -69,9 +69,13 @@ query on top of the first stage.
 
 Listwise LLM reranking does improve on it. The model sees the description and all 20 top
 candidates in one prompt and picks the best 10, so it can compare candidates against each
-other, which a cross-encoder scoring one pair at a time cannot. Whether that is why it helps is
-not yet tested: the LLMs are also larger than the cross-encoders and from different model
-families, and the same-size pointwise control has not been run. A local Qwen3-4B adds about {{qwen.gain.mean:.0%}}
+other, which a cross-encoder scoring one pair at a time cannot. A control shows that is only
+part of why it helps. `Qwen3-Reranker-4B`, a pointwise reranker on the same base as the local
+listwise model, also beats the first stage in both languages. It shows no measurable advantage
+for the listwise format in English, though the interval allows listwise up to about {{pw.listwise_upper.en.share:.0%}} of its
+gain there, and keeps {{pw.share_of_listwise_gain.pt:.0%}} of the listwise gain in Portuguese. Model size explains most of the
+difference from the smaller cross-encoders. The listwise format adds a measurable amount in
+Portuguese; whether it helps Portuguese more than English is not established. A local Qwen3-4B adds about {{qwen.gain.mean:.0%}}
 in both languages. DeepSeek's API model (`deepseek-flash`) adds {{deepseek.gain.en:.0%}} to {{deepseek.gain.pt:.0%}}, beats the local
 model on the same queries by about {{llm.ds_minus_qwen.pt.mean:.2f}} nDCG@10 in both languages, and captures about a third
 of the headroom available at that depth against the local model's sixth. The whole experiment,
@@ -468,9 +472,10 @@ Slices that are part of the benchmark design and not yet run:
 - **Language skills:** reported separately, following the Commission's finding that proficiency
   levels are a known failure case.
 
-One control is also outstanding: `Qwen3-Reranker-4B`, a pointwise reranker built on the same
-base as the local listwise model, to separate listwise scoring from model size and family in
-[experiment 15](results/README.md).
+The pointwise control in [experiment 15](results/README.md) separates the listwise format from
+model size but not from training: the pointwise reranker and the listwise instruct model share
+a base and were fine-tuned differently. Separating that would need a listwise and a pointwise
+model fine-tuned the same way from the same base.
 
 ## Repository layout
 

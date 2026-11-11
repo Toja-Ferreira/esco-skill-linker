@@ -8,6 +8,27 @@ Both models rerank the same first stage at depth 20 on the same 608 test queries
 |---|---|---:|---:|
 | pt | +0.0331 [+0.0266, +0.0393] | 61% | 30% |
 | en | +0.0311 [+0.0250, +0.0375] | 65% | 31% |
+| pt | -0.0095 [-0.0172, -0.0018] | 42% | 52% |
+| en | -0.0010 [-0.0079, +0.0059] | 50% | 45% |
+| pt | +0.0342 [+0.0260, +0.0432] | 58% | 37% |
+| en | +0.0393 [+0.0308, +0.0480] | 64% | 33% |
+
+## Pointwise control
+
+Qwen3-Reranker-4B scores one candidate at a time, on the same Qwen3 4B base as the listwise model, with experiment 15's depths, candidate text and dev sample. Decision rules are in `experiments/14_rerank.py`.
+
+| comparison | language | difference, nDCG@10 (95% CI) | pointwise better |
+|---|---|---|---:|
+| Qwen3-Reranker-4B (pointwise) minus first stage | pt | +0.0254 [+0.0168, +0.0348] | 54% |
+| Qwen3-Reranker-4B (pointwise) minus first stage | en | +0.0346 [+0.0254, +0.0440] | 60% |
+| Qwen3-Reranker-4B (pointwise) minus Qwen3-4B (local) | pt | -0.0095 [-0.0172, -0.0018] | 42% |
+| Qwen3-Reranker-4B (pointwise) minus Qwen3-4B (local) | en | -0.0010 [-0.0079, +0.0059] | 50% |
+| Qwen3-Reranker-4B (pointwise) minus DeepSeek (API) | pt | -0.0426 [-0.0502, -0.0355] | 29% |
+| Qwen3-Reranker-4B (pointwise) minus DeepSeek (API) | en | -0.0320 [-0.0399, -0.0249] | 33% |
+| Qwen3-Reranker-4B (pointwise) minus Qwen3-Reranker-0.6B (pointwise) | pt | +0.0342 [+0.0260, +0.0432] | 58% |
+| Qwen3-Reranker-4B (pointwise) minus Qwen3-Reranker-0.6B (pointwise) | en | +0.0393 [+0.0308, +0.0480] | 64% |
+
+Whether the listwise format helps one language more: per occupation, (listwise minus pointwise) in Portuguese minus the same in English, +0.0085 [-0.0004, +0.0178]. The per-language comparisons above are not a test of a difference between languages; this is.
 
 ## Language gap
 
@@ -24,6 +45,8 @@ English minus Portuguese for the same occupation. Relative is the mean gap over 
 | oracle@20 | +0.0393 [+0.0288, +0.0501] | +7.1% |
 | oracle@50 | +0.0276 [+0.0175, +0.0377] | +3.9% |
 | oracle@100 | +0.0244 [+0.0156, +0.0334] | +3.1% |
+| Qwen3-Reranker-4B (pointwise) | +0.0446 [+0.0350, +0.0543] | +12.1% |
+| Qwen3-Reranker-0.6B (pointwise) | +0.0395 [+0.0293, +0.0498] | +11.8% |
 
 ## Change in the gap
 
@@ -37,6 +60,7 @@ A negative value means the second system has a smaller English lead than the fir
 | Qwen3-4B (local) minus first stage | +0.0006 [-0.0094, +0.0107] |
 | DeepSeek (API) minus first stage | -0.0014 [-0.0118, +0.0089] |
 | DeepSeek (API) minus Qwen3-4B (local) | -0.0020 [-0.0103, +0.0068] |
+| Qwen3-Reranker-4B (pointwise) minus first stage | +0.0092 [-0.0009, +0.0192] |
 
 ## Gap removed by perfect ordering
 
