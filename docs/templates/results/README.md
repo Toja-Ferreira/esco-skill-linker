@@ -22,6 +22,7 @@ not.
 | 14 | Cross-encoder reranking, and the ordering ceiling | [`rerank.md`](rerank.md), [`rerank_qwen3-0.6b.md`](rerank_qwen3-0.6b.md) | [`experiments/14_rerank.py`](../experiments/14_rerank.py) |
 | 15 | Listwise LLM reranking, local and API | [`llm_rerank_qwen3-4b-local.md`](llm_rerank_qwen3-4b-local.md), [`llm_rerank_deepseek.md`](llm_rerank_deepseek.md) | [`experiments/15_llm_rerank.py`](../experiments/15_llm_rerank.py) |
 | 16 | Local against API, per query | [`llm_compare.md`](llm_compare.md) | [`experiments/16_llm_compare.py`](../experiments/16_llm_compare.py) |
+| 17 | Hidden labels in the skill documents | [`hidden_labels.md`](hidden_labels.md) | [`experiments/17_hidden_labels.py`](../experiments/17_hidden_labels.py) |
 
 Figures in [`figures/`](figures/) are drawn from these result files by
 [`experiments/make_figures.py`](../experiments/make_figures.py).
@@ -1439,6 +1440,70 @@ which may matter more than the score in a university deployment.
 
 Neither changes the language gap. Whatever puts Portuguese behind English is
 already fixed by the time the shortlist reaches the reranker.
+
+## 17: Hidden labels in the skill documents
+
+ESCO's hidden labels are search terms meant to be matched but not shown. The
+skill documents leave them out. They sit on {{hidden.en.skills:,.0f}} skills in English and
+{{hidden.pt.skills:,.0f}} in Portuguese, mostly software and ICT. Three variants were scored on test
+once, with the decision rule written into the script before the run: A is the
+deployed `labels_desc`; B adds hidden labels to BM25 only; C adds them to BM25
+and EmbeddingGemma, re-embedding only the changed documents. All three are
+fused at the deployed BM25 weights, {{hidden.deployed_weight.en:.1f}} in English and {{hidden.deployed_weight.pt:.1f}} in Portuguese.
+
+### No measurable effect either way
+
+| | English nDCG@10 | Portuguese nDCG@10 |
+|---|---:|---:|
+| A, deployed | {{hidden.en.A.ndcg10:.4f}} | {{hidden.pt.A.ndcg10:.4f}} |
+| B, hidden in BM25 | {{hidden.en.B.ndcg10:.4f}} | {{hidden.pt.B.ndcg10:.4f}} |
+| C, hidden in both | {{hidden.en.C.ndcg10:.4f}} | {{hidden.pt.C.ndcg10:.4f}} |
+
+Paired on query, B minus A in English is {{hidden.en.BA.all.ndcg10.mean:+.4f}} [{{hidden.en.BA.all.ndcg10.lo:+.4f}}, {{hidden.en.BA.all.ndcg10.hi:+.4f}}]
+nDCG@10, and P@10 does not move on any query. Dev selects the deployed weight
+for both new variants ({{hidden.en.dev_weight.B:.1f}} and {{hidden.en.dev_weight.C:.1f}} in English). Few queries can be reached: of
+the test queries whose gold includes a skill with hidden labels, only
+{{hidden.en.trig_gold:,.0f}} in English and {{hidden.pt.trig_gold:,.0f}} in Portuguese share a token with those labels that the
+document did not already contain.
+
+The non-gold slice, queries sharing such a new token with any non-gold skill,
+covers {{hidden.en.trig_nongold:,.0f}} English queries, because the new tokens include common stems
+such as "oper", "manag" and "design". B is harmless there too, {{hidden.en.BA.nongold.ndcg10.mean:+.4f}}
+[{{hidden.en.BA.nongold.ndcg10.lo:+.4f}}, {{hidden.en.BA.nongold.ndcg10.hi:+.4f}}]. C is slightly worse than A on that slice,
+{{hidden.en.CA.nongold.ndcg10.mean:+.5f}} [{{hidden.en.CA.nongold.ndcg10.lo:+.5f}}, {{hidden.en.CA.nongold.ndcg10.hi:+.5f}}], an interval that excludes zero but is far
+below anything a user would notice.
+
+### The course-text probe
+
+{{hidden.probe.sentences:.0f}} sentences from English course pages on programming and web development,
+each labelled with the ESCO skills a teacher would expect, looked up by
+preferred label and description only (`data/probe/hidden_label_probe.csv`).
+Under B, {{hidden.probe.better:w}} sentences improve and {{hidden.probe.worse:w}} get worse, each by an
+expected skill moving a few places, and {{hidden.probe.dropped:w}} expected skill that was in A's top 10
+falls out of it. Better
+minus worse is {{hidden.probe.better:.0f}} − {{hidden.probe.worse:.0f}}, against the {{hidden.probe_margin:.0f}} rule 2 requires.
+
+The case that motivated the experiment was a misdiagnosis. A course sentence on
+Linux seemed to miss *operating systems* because "Linux" was taken to be only a
+hidden label, but it is in that skill's description, so it was already in the
+`labels_desc` document. In the probe, *operating systems* is outside A's top 50
+for both Unix/Linux sentences. Under B it enters the bottom of the top 50 for
+one of them, but *computer programming* falls in the same sentence, so that
+sentence counts as neither better nor worse.
+
+An earlier labelling of the same sentences (`hidden_label_probe_v1.csv`) was
+made in a session that had already seen hidden-label counts per skill, which
+could bias it toward skills with many hidden labels. The current labels were
+made without them. The two agree on the full skill set for {{hidden.probe.same_sets:.0f}} of {{hidden.probe.sentences:.0f}}
+sentences, and {{hidden.probe.uri_overlap:.0%}} of the sentence-skill pairs in either labelling are in
+both.
+
+### Verdict
+
+Rule 1, no harm from B, holds: both lower bounds are above {{hidden.harm_floor:+.3f}}, overall and on
+the non-gold slice. Rule 2, benefit on course text, does not. Under rule 3 the
+deployed configuration stays at A, and C does not beat B either. Hidden labels
+are not adopted.
 
 ---
 

@@ -16,3 +16,6 @@ __pycache__/
 .vscode/
 data/embeddings/
 data/runs/
+
+# scratch
+section.txt

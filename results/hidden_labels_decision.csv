@@ -1,0 +1,2 @@
+rule1,rule2,probe_present,probe_better,probe_worse,probe_dropped_top10,c_beats_b,choice
+True,False,True,0,4,1,False,A

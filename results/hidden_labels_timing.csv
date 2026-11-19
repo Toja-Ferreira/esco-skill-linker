@@ -1,0 +1,16 @@
+step,seconds
+load data,0.21
+en: documents and slices,7.09
+"en: BM25 index, B",6.24
+"en: re-embed 153 changed documents, C",0.03
+en: dev weight sweep,10.63
+en: test scoring,0.28
+en: paired bootstrap,0.14
+en: probe,20.14
+pt: documents and slices,3.93
+"pt: BM25 index, B",3.63
+"pt: re-embed 30 changed documents, C",0.02
+pt: dev weight sweep,10.71
+pt: test scoring,0.29
+pt: paired bootstrap,0.07
+pt: probe,0.0

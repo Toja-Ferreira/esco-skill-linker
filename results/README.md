@@ -22,6 +22,7 @@ not.
 | 14 | Cross-encoder reranking, and the ordering ceiling | [`rerank.md`](rerank.md), [`rerank_qwen3-0.6b.md`](rerank_qwen3-0.6b.md) | [`experiments/14_rerank.py`](../experiments/14_rerank.py) |
 | 15 | Listwise LLM reranking, local and API | [`llm_rerank_qwen3-4b-local.md`](llm_rerank_qwen3-4b-local.md), [`llm_rerank_deepseek.md`](llm_rerank_deepseek.md) | [`experiments/15_llm_rerank.py`](../experiments/15_llm_rerank.py) |
 | 16 | Local against API, per query | [`llm_compare.md`](llm_compare.md) | [`experiments/16_llm_compare.py`](../experiments/16_llm_compare.py) |
+| 17 | Hidden labels in the skill documents | [`hidden_labels.md`](hidden_labels.md) | [`experiments/17_hidden_labels.py`](../experiments/17_hidden_labels.py) |
 
 Figures in [`figures/`](figures/) are drawn from these result files by
 [`experiments/make_figures.py`](../experiments/make_figures.py).
@@ -1439,6 +1440,70 @@ which may matter more than the score in a university deployment.
 
 Neither changes the language gap. Whatever puts Portuguese behind English is
 already fixed by the time the shortlist reaches the reranker.
+
+## 17: Hidden labels in the skill documents
+
+ESCO's hidden labels are search terms meant to be matched but not shown. The
+skill documents leave them out. They sit on [153](hidden_labels.md "from hidden_labels.md") skills in English and
+[30](hidden_labels.md "from hidden_labels.md") in Portuguese, mostly software and ICT. Three variants were scored on test
+once, with the decision rule written into the script before the run: A is the
+deployed `labels_desc`; B adds hidden labels to BM25 only; C adds them to BM25
+and EmbeddingGemma, re-embedding only the changed documents. All three are
+fused at the deployed BM25 weights, [0.4](fusion.md "from fusion.md") in English and [0.3](fusion.md "from fusion.md") in Portuguese.
+
+### No measurable effect either way
+
+| | English nDCG@10 | Portuguese nDCG@10 |
+|---|---:|---:|
+| A, deployed | [0.3794](hidden_labels.md "from hidden_labels.md") | [0.3439](hidden_labels.md "from hidden_labels.md") |
+| B, hidden in BM25 | [0.3794](hidden_labels.md "from hidden_labels.md") | [0.3438](hidden_labels.md "from hidden_labels.md") |
+| C, hidden in both | [0.3793](hidden_labels.md "from hidden_labels.md") | [0.3438](hidden_labels.md "from hidden_labels.md") |
+
+Paired on query, B minus A in English is [0.0000](hidden_labels.md "from hidden_labels.md") [[−0.0001](hidden_labels.md "from hidden_labels.md"), [+0.0001](hidden_labels.md "from hidden_labels.md")]
+nDCG@10, and P@10 does not move on any query. Dev selects the deployed weight
+for both new variants ([0.4](hidden_labels.md "from hidden_labels.md") and [0.4](hidden_labels.md "from hidden_labels.md") in English). Few queries can be reached: of
+the test queries whose gold includes a skill with hidden labels, only
+[12](hidden_labels.md "from hidden_labels.md") in English and [2](hidden_labels.md "from hidden_labels.md") in Portuguese share a token with those labels that the
+document did not already contain.
+
+The non-gold slice, queries sharing such a new token with any non-gold skill,
+covers [550](hidden_labels.md "from hidden_labels.md") English queries, because the new tokens include common stems
+such as "oper", "manag" and "design". B is harmless there too, [0.0000](hidden_labels.md "from hidden_labels.md")
+[[−0.0001](hidden_labels.md "from hidden_labels.md"), [+0.0001](hidden_labels.md "from hidden_labels.md")]. C is slightly worse than A on that slice,
+[−0.00018](hidden_labels.md "from hidden_labels.md") [[−0.00045](hidden_labels.md "from hidden_labels.md"), [−0.00001](hidden_labels.md "from hidden_labels.md")], an interval that excludes zero but is far
+below anything a user would notice.
+
+### The course-text probe
+
+[21](figure_sources.md#hidden.probe.sentences "recorded in figure_sources.md") sentences from English course pages on programming and web development,
+each labelled with the ESCO skills a teacher would expect, looked up by
+preferred label and description only (`data/probe/hidden_label_probe.csv`).
+Under B, [zero](hidden_labels.md "from hidden_labels.md") sentences improve and [four](hidden_labels.md "from hidden_labels.md") get worse, each by an
+expected skill moving a few places, and [one](hidden_labels.md "from hidden_labels.md") expected skill that was in A's top 10
+falls out of it. Better
+minus worse is [0](hidden_labels.md "from hidden_labels.md") − [4](hidden_labels.md "from hidden_labels.md"), against the [3](figure_sources.md#hidden.probe_margin "recorded in figure_sources.md") rule 2 requires.
+
+The case that motivated the experiment was a misdiagnosis. A course sentence on
+Linux seemed to miss *operating systems* because "Linux" was taken to be only a
+hidden label, but it is in that skill's description, so it was already in the
+`labels_desc` document. In the probe, *operating systems* is outside A's top 50
+for both Unix/Linux sentences. Under B it enters the bottom of the top 50 for
+one of them, but *computer programming* falls in the same sentence, so that
+sentence counts as neither better nor worse.
+
+An earlier labelling of the same sentences (`hidden_label_probe_v1.csv`) was
+made in a session that had already seen hidden-label counts per skill, which
+could bias it toward skills with many hidden labels. The current labels were
+made without them. The two agree on the full skill set for [17](figure_sources.md#hidden.probe.same_sets "recorded in figure_sources.md") of [21](figure_sources.md#hidden.probe.sentences "recorded in figure_sources.md")
+sentences, and [76%](figure_sources.md#hidden.probe.uri_overlap "recorded in figure_sources.md") of the sentence-skill pairs in either labelling are in
+both.
+
+### Verdict
+
+Rule 1, no harm from B, holds: both lower bounds are above [−0.005](figure_sources.md#hidden.harm_floor "recorded in figure_sources.md"), overall and on
+the non-gold slice. Rule 2, benefit on course text, does not. Under rule 3 the
+deployed configuration stays at A, and C does not beat B either. Hidden labels
+are not adopted.
 
 ---
 

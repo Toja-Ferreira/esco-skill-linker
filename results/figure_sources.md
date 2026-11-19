@@ -663,6 +663,38 @@ The registry is `experiments/figures.py`.
 | <a id="h2h.hybenwsf_vs_bigemmawsf.delta_lo"></a>`h2h.hybenwsf_vs_bigemmawsf.delta_lo` | 0.0073986342733328 | lookup | `fusion_head_to_head.csv` [a=hybrid en (wsf), b=bilingual embeddinggemma (wsf)] `delta_lo` |
 | <a id="h2h.hybenwsf_vs_bigemmawsf.mean_delta"></a>`h2h.hybenwsf_vs_bigemmawsf.mean_delta` | 0.0147048212562986 | lookup | `fusion_head_to_head.csv` [a=hybrid en (wsf), b=bilingual embeddinggemma (wsf)] `mean_delta` |
 | <a id="h2h.hybenwsf_vs_bigemmawsf.share_positive"></a>`h2h.hybenwsf_vs_bigemmawsf.share_positive` | 0.5526315789473685 | lookup | `fusion_head_to_head.csv` [a=hybrid en (wsf), b=bilingual embeddinggemma (wsf)] `share_positive` |
+| <a id="hidden.deployed_weight.en"></a>`hidden.deployed_weight.en` | 0.4 | lookup | `fusion_test.csv` [combination=hybrid en, fusion=wsf] `weight` |
+| <a id="hidden.deployed_weight.pt"></a>`hidden.deployed_weight.pt` | 0.3 | lookup | `fusion_test.csv` [combination=hybrid pt, fusion=wsf] `weight` |
+| <a id="hidden.en.A.ndcg10"></a>`hidden.en.A.ndcg10` | 0.3793949473753142 | lookup | `hidden_labels_test.csv` [system=hybrid, variant=A, language=en, slice=all] `ndcg@10` |
+| <a id="hidden.en.B.ndcg10"></a>`hidden.en.B.ndcg10` | 0.3793768867722887 | lookup | `hidden_labels_test.csv` [system=hybrid, variant=B, language=en, slice=all] `ndcg@10` |
+| <a id="hidden.en.BA.all.ndcg10.hi"></a>`hidden.en.BA.all.ndcg10.hi` | 8.377555905095359e-05 | lookup | `hidden_labels_paired.csv` [system=hybrid, comparison=B−A, language=en, slice=all, metric=ndcg@10] `hi` |
+| <a id="hidden.en.BA.all.ndcg10.lo"></a>`hidden.en.BA.all.ndcg10.lo` | -0.0001244514324012 | lookup | `hidden_labels_paired.csv` [system=hybrid, comparison=B−A, language=en, slice=all, metric=ndcg@10] `lo` |
+| <a id="hidden.en.BA.all.ndcg10.mean"></a>`hidden.en.BA.all.ndcg10.mean` | -1.806060302543303e-05 | lookup | `hidden_labels_paired.csv` [system=hybrid, comparison=B−A, language=en, slice=all, metric=ndcg@10] `mean` |
+| <a id="hidden.en.BA.nongold.ndcg10.hi"></a>`hidden.en.BA.nongold.ndcg10.hi` | 9.379537878207678e-05 | lookup | `hidden_labels_paired.csv` [system=hybrid, comparison=B−A, language=en, slice=triggered-nongold-new, metric=ndcg@10] `hi` |
+| <a id="hidden.en.BA.nongold.ndcg10.lo"></a>`hidden.en.BA.nongold.ndcg10.lo` | -0.0001383167848441 | lookup | `hidden_labels_paired.csv` [system=hybrid, comparison=B−A, language=en, slice=triggered-nongold-new, metric=ndcg@10] `lo` |
+| <a id="hidden.en.BA.nongold.ndcg10.mean"></a>`hidden.en.BA.nongold.ndcg10.mean` | -1.996517570811506e-05 | lookup | `hidden_labels_paired.csv` [system=hybrid, comparison=B−A, language=en, slice=triggered-nongold-new, metric=ndcg@10] `mean` |
+| <a id="hidden.en.C.ndcg10"></a>`hidden.en.C.ndcg10` | 0.3792518879130065 | lookup | `hidden_labels_test.csv` [system=hybrid, variant=C, language=en, slice=all] `ndcg@10` |
+| <a id="hidden.en.CA.nongold.ndcg10.hi"></a>`hidden.en.CA.nongold.ndcg10.hi` | -1.3053530093771052e-05 | lookup | `hidden_labels_paired.csv` [system=hybrid, comparison=C−A, language=en, slice=triggered-nongold-new, metric=ndcg@10] `hi` |
+| <a id="hidden.en.CA.nongold.ndcg10.lo"></a>`hidden.en.CA.nongold.ndcg10.lo` | -0.0004478960765352 | lookup | `hidden_labels_paired.csv` [system=hybrid, comparison=C−A, language=en, slice=triggered-nongold-new, metric=ndcg@10] `lo` |
+| <a id="hidden.en.CA.nongold.ndcg10.mean"></a>`hidden.en.CA.nongold.ndcg10.mean` | -0.0001756825451109 | lookup | `hidden_labels_paired.csv` [system=hybrid, comparison=C−A, language=en, slice=triggered-nongold-new, metric=ndcg@10] `mean` |
+| <a id="hidden.en.dev_weight.B"></a>`hidden.en.dev_weight.B` | 0.4 | computed | `hidden_labels_dev.csv` [language=en, variant=B] `weight` at the highest `ndcg@10` |
+| <a id="hidden.en.dev_weight.C"></a>`hidden.en.dev_weight.C` | 0.4 | computed | `hidden_labels_dev.csv` [language=en, variant=C] `weight` at the highest `ndcg@10` |
+| <a id="hidden.en.skills"></a>`hidden.en.skills` | 153 | lookup | `hidden_labels_sizes.csv` [language=en] `skills_with_hidden` |
+| <a id="hidden.en.trig_gold"></a>`hidden.en.trig_gold` | 12 | lookup | `hidden_labels_sizes.csv` [language=en] `slice_triggered-gold-new` |
+| <a id="hidden.en.trig_nongold"></a>`hidden.en.trig_nongold` | 550 | lookup | `hidden_labels_sizes.csv` [language=en] `slice_triggered-nongold-new` |
+| <a id="hidden.harm_floor"></a>`hidden.harm_floor` | -0.005 | constant | `HARM_FLOOR` in `experiments/17_hidden_labels.py`, rule 1 |
+| <a id="hidden.probe.better"></a>`hidden.probe.better` | 0 | lookup | `hidden_labels_decision.csv` [] `probe_better` |
+| <a id="hidden.probe.dropped"></a>`hidden.probe.dropped` | 1 | lookup | `hidden_labels_decision.csv` [] `probe_dropped_top10` |
+| <a id="hidden.probe.same_sets"></a>`hidden.probe.same_sets` | 17 | computed | `data/probe/hidden_label_probe_v1.csv` against `data/probe/hidden_label_probe.csv`, matched on sentence: sentences with identical skill sets |
+| <a id="hidden.probe.sentences"></a>`hidden.probe.sentences` | 21 | computed | `data/probe/hidden_label_probe_v1.csv` against `data/probe/hidden_label_probe.csv`, matched on sentence: sentences |
+| <a id="hidden.probe.uri_overlap"></a>`hidden.probe.uri_overlap` | 0.7647058823529411 | computed | `data/probe/hidden_label_probe_v1.csv` against `data/probe/hidden_label_probe.csv`, matched on sentence: (sentence, URI) pairs in both over pairs in either |
+| <a id="hidden.probe.worse"></a>`hidden.probe.worse` | 4 | lookup | `hidden_labels_decision.csv` [] `probe_worse` |
+| <a id="hidden.probe_margin"></a>`hidden.probe_margin` | 3 | constant | `PROBE_MARGIN` in `experiments/17_hidden_labels.py`, rule 2 |
+| <a id="hidden.pt.A.ndcg10"></a>`hidden.pt.A.ndcg10` | 0.3439290422028087 | lookup | `hidden_labels_test.csv` [system=hybrid, variant=A, language=pt, slice=all] `ndcg@10` |
+| <a id="hidden.pt.B.ndcg10"></a>`hidden.pt.B.ndcg10` | 0.343844910778062 | lookup | `hidden_labels_test.csv` [system=hybrid, variant=B, language=pt, slice=all] `ndcg@10` |
+| <a id="hidden.pt.C.ndcg10"></a>`hidden.pt.C.ndcg10` | 0.343844910778062 | lookup | `hidden_labels_test.csv` [system=hybrid, variant=C, language=pt, slice=all] `ndcg@10` |
+| <a id="hidden.pt.skills"></a>`hidden.pt.skills` | 30 | lookup | `hidden_labels_sizes.csv` [language=pt] `skills_with_hidden` |
+| <a id="hidden.pt.trig_gold"></a>`hidden.pt.trig_gold` | 2 | lookup | `hidden_labels_sizes.csv` [language=pt] `slice_triggered-gold-new` |
 | <a id="hybrid.gain_over_bi.en"></a>`hybrid.gain_over_bi.en` | 0.06109300909144566 | formula | {hybrid.test.en.ndcg10} / {bi.embeddinggemma.test.en.ndcg10} - 1 |
 | <a id="hybrid.gain_over_bi.pt"></a>`hybrid.gain_over_bi.pt` | 0.047253099333284254 | formula | {hybrid.test.pt.ndcg10} / {bi.embeddinggemma.test.pt.ndcg10} - 1 |
 | <a id="hybrid.gain_over_bm25.pt"></a>`hybrid.gain_over_bm25.pt` | 0.2938575660064906 | formula | {hybrid.test.pt.ndcg10} / {bm25.test.pt.ndcg10} - 1 |

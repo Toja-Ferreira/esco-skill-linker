@@ -134,6 +134,7 @@ REPORTS = {
     "bm25_tuned_test": "bm25_sweep.md", "dense_vs_lexical": "dense_vs_lexical.md",
     "fusion_rrf_tuned": "fusion_rrf_tuned.md", "fusion": "fusion.md",
     "gold_size_slice": "gold_size_slice.md",
+    "hidden_labels": "hidden_labels.md",
     "idf_band_overlap": "idf_band_overlap.md", "lexical_overlap": "lexical_overlap.md",
     "llm_compare": "llm_compare.md", "residual_gap": "residual_gap.md",
     "score_distribution": "score_distribution.md", "weighted_overlap": "weighted_overlap.md",
@@ -784,6 +785,65 @@ constant("qwen.slow.gpu_watts", 43, "`nvidia-smi` observation during the slow ru
 constant("qwen.slow.gpu_watts_max", 140, "`nvidia-smi` power limit; not reproducible from results/")
 constant("qwen.earlier_run.pt.s_per_query", 0.94, "s/query of an earlier run of the same Portuguese test "
          "split, from the run log; not reproducible from results/")
+
+# ---------------------------------------------------------- 17: hidden labels
+
+HL = "hidden_labels"
+for lang in LANGS:
+    for key, col in (("labels", "hidden_labels"), ("skills", "skills_with_hidden"),
+                     ("changed", "documents_changed"), ("new_tokens", "skills_adding_new_tokens"),
+                     ("affected", "slice_affected"), ("trig_gold", "slice_triggered-gold-new"),
+                     ("trig_nongold", "slice_triggered-nongold-new")):
+        lookup(f"hidden.{lang}.{key}", f"{HL}_sizes.csv", col, language=lang)
+    for v in "ABC":
+        lookup(f"hidden.{lang}.{v}.ndcg10", f"{HL}_test.csv", "ndcg@10",
+               system="hybrid", variant=v, language=lang, slice="all")
+    for comp in ("B−A", "C−A", "C−B"):
+        key = comp.replace("−", "")
+        for sl, skey in (("all", "all"), ("triggered-nongold-new", "nongold")):
+            for m, mkey in (("ndcg@10", "ndcg10"), ("precision@10", "p10")):
+                for col in ("mean", "lo", "hi"):
+                    lookup(f"hidden.{lang}.{key}.{skey}.{mkey}.{col}", f"{HL}_paired.csv", col,
+                           system="hybrid", comparison=comp, language=lang, slice=sl, metric=m)
+    for v in "BC":
+        computed(f"hidden.{lang}.dev_weight.{v}",
+                 f"`{HL}_dev.csv` [language={lang}, variant={v}] `weight` at the highest `ndcg@10`",
+                 lambda lang=lang, v=v: (lambda d: float(d.loc[d["ndcg@10"].idxmax(), "weight"]))(
+                     read_csv(f"{HL}_dev.csv").query("language == @lang and variant == @v")))
+for lang in LANGS:
+    lookup(f"hidden.deployed_weight.{lang}", "fusion_test.csv", "weight",
+           combination=f"hybrid {lang}", fusion="wsf")
+for key, col in (("better", "probe_better"), ("worse", "probe_worse"),
+                 ("dropped", "probe_dropped_top10")):
+    lookup(f"hidden.probe.{key}", f"{HL}_decision.csv", col)
+
+
+# Agreement between the two labellings of the probe, matched on sentence text.
+# v1 was labelled in a session that had already seen hidden-label counts.
+def _probe_sets(name: str) -> dict[str, frozenset]:
+    d = pd.read_csv(REPO_ROOT / "data" / "probe" / name)
+    return {s: frozenset(u.strip() for u in str(x).split("|") if u.strip())
+            for s, x in zip(d["sentence"], d["expected_skill_uris"].fillna(""))}
+
+
+def _probe_agreement() -> tuple[int, int, float]:
+    v1, cur = _probe_sets("hidden_label_probe_v1.csv"), _probe_sets("hidden_label_probe.csv")
+    if set(v1) != set(cur):
+        raise LookupError("probe v1 and current label different sentences")
+    same = sum(v1[s] == cur[s] for s in cur)
+    pairs1 = {(s, u) for s in v1 for u in v1[s]}
+    pairs2 = {(s, u) for s in cur for u in cur[s]}
+    return same, len(cur), len(pairs1 & pairs2) / len(pairs1 | pairs2)
+
+
+PROBE_SRC = "`data/probe/hidden_label_probe_v1.csv` against `data/probe/hidden_label_probe.csv`, matched on sentence"
+computed("hidden.probe.sentences", f"{PROBE_SRC}: sentences", lambda: float(_probe_agreement()[1]), ())
+computed("hidden.probe.same_sets", f"{PROBE_SRC}: sentences with identical skill sets",
+         lambda: float(_probe_agreement()[0]), ())
+computed("hidden.probe.uri_overlap", f"{PROBE_SRC}: (sentence, URI) pairs in both over pairs in either",
+         lambda: _probe_agreement()[2], ())
+constant("hidden.harm_floor", -0.005, "`HARM_FLOOR` in `experiments/17_hidden_labels.py`, rule 1")
+constant("hidden.probe_margin", 3, "`PROBE_MARGIN` in `experiments/17_hidden_labels.py`, rule 2")
 
 # ------------------------------------------------- external and setup facts
 

@@ -396,6 +396,8 @@ Each scored on the same frozen split, with latency and cost recorded alongside q
 5. **Cross-encoder reranking** over a shortlist from the best first-stage method
 6. **Listwise LLM reranking**, a local model against a paid API, on quality, latency and cost
 
+Adding ESCO's hidden labels to the skill documents was tested in [experiment 17](results/README.md#17-hidden-labels-in-the-skill-documents) and not adopted.
+
 Late interaction (ColBERT-style, one vector per token) was planned and dropped. The oracle in
 experiment 14 shows the existing shortlist already supports nDCG@10 of about [0.81](results/rerank.md "from rerank.md"), so the
 bottleneck is ordering, and a different retriever would not address it.

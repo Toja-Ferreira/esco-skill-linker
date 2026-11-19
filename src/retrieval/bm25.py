@@ -103,8 +103,14 @@ def build_documents(
     alt: dict[str, list[str]],
     description: dict[str, str],
     variant: str,
+    hidden: dict[str, list[str]] | None = None,
 ) -> list[str]:
-    """One text blob per skill, in the order given by `uris`."""
+    """One text blob per skill, in the order given by `uris`.
+
+    `hidden`, if given, appends each skill's hidden labels after the variant's
+    own parts, in label order (experiment 17). Default None leaves every
+    variant exactly as before.
+    """
     if variant not in VARIANTS:
         raise ValueError(f"Unknown variant '{variant}'; expected one of {VARIANTS}")
 
@@ -117,6 +123,8 @@ def build_documents(
             parts.extend(alt.get(u, []))
         if variant in ("labels_desc", "description"):
             parts.append(description.get(u, ""))
+        if hidden is not None:
+            parts.extend(hidden.get(u, []))
         docs.append(" ".join(p for p in parts if p))
     return docs
 
